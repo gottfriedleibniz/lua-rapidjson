@@ -193,11 +193,14 @@ namespace LuaSAX {
   }
 
   struct Key {
+    bool is_number;
+    lua_Number number;
     const char *key;
     size_t len;
 
-    Key() : key(NULL), len(0) { }
-    Key(const char *k, size_t l) : key(k), len(l) { }
+    Key() : is_number(false), number(0), key(NULL), len(0) { }
+    Key(const char *k, size_t l) : is_number(false), number(0), key(k), len(l) { }
+    Key(lua_Number i, const char *k, size_t l) : is_number(true), number(i), key(k), len(l) { }
 
     bool operator<(const Key &rhs) const {
       return strcmp(key, rhs.key) < 0;
@@ -485,14 +488,33 @@ namespace LuaSAX {
       else {
         int i_idx = JSON_REL_INDEX(idx, 1);  /* Account for key */
         std::vector<Key> keys;  /* Collect all table keys  */
+        LUA_JSON_CHECKSTACK(L, 3);
 
         lua_pushnil(L);
         while (lua_next(L, i_idx)) { /* [key][value] */
           if (lua_type(L, -2) == LUA_TSTRING) {
             Key k;
+            k.is_number = false;
+            k.number = 0;
             k.key = lua_tolstring(L, -2, &k.len);
             keys.push_back(k);
           }
+          else if (lua_type(L, -2) == LUA_TNUMBER) {
+            Key k;
+            lua_pushvalue(L, -2); /* [key, value, number for formatting] */
+
+            k.is_number = true;
+            k.number = lua_tonumber(L, -1);
+            k.key = lua_tolstring(L, -1, &k.len);
+            keys.push_back(k);
+            lua_pop(L, 1); /* [key, value] */
+          }
+#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
+          else {
+            luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+            return;
+          }
+#endif
           lua_pop(L, 1); /* [key] */
         }
         std::sort(keys.begin(), keys.end());
@@ -514,17 +536,32 @@ namespace LuaSAX {
     template<typename Writer>
     void encodeObject(lua_State* L, Writer* writer, int idx, int depth) {
       int i_idx = JSON_REL_INDEX(idx, 1);
-      LUA_JSON_CHECKSTACK(L, 2);
+      LUA_JSON_CHECKSTACK(L, 3);
 
       writer->StartObject();
       lua_pushnil(L); /* [table, nil] */
       while (lua_next(L, i_idx)) { /* [table, key, value] */
+        size_t len = 0;
+        const char *key = NULL;
         if (lua_type(L, -2) == LUA_TSTRING) {
-          size_t len = 0;
-          const char *k = lua_tolstring(L, -2, &len);
-          writer->Key(k, static_cast<rapidjson::SizeType>(len));
+          key = lua_tolstring(L, -2, &len);
+          writer->Key(key, static_cast<rapidjson::SizeType>(len));
           encodeValue(L, writer, -1, depth);
         }
+        else if (lua_type(L, -2) == LUA_TNUMBER) {
+          lua_pushvalue(L, -2); /* [key, value, key] */
+          key = lua_tolstring(L, -1, &len);
+          writer->Key(key, static_cast<rapidjson::SizeType>(len));
+          lua_pop(L, 1); /* [key, value] */
+
+          encodeValue(L, writer, -1, depth);
+        }
+#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
+        else {
+          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          return;
+        }
+#endif
         lua_pop(L, 1); /* pop value: [table, key] */
       }
       writer->EndObject();
@@ -539,7 +576,10 @@ namespace LuaSAX {
       std::vector<Key>::const_iterator e = keys.end();
       for (std::vector<Key>::const_iterator i = keys.begin(); i != e; ++i) {
         writer->Key(i->key, static_cast<rapidjson::SizeType>(i->len));
-        lua_pushlstring(L, i->key, i->len); /* sorted key */
+        if (i->is_number)
+          lua_pushnumber(L, i->number);
+        else
+          lua_pushlstring(L, i->key, i->len); /* sorted key */
         lua_gettable(L, i_idx);
         encodeValue(L, writer, -1, depth);
         lua_pop(L, 1);
