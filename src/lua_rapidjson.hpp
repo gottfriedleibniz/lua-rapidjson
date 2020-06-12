@@ -48,6 +48,7 @@ extern "C" {
 #define LUA_DKJSON_CYCLE "reference cycle"
 #define LUA_DKJSON_FAIL "custom encoder failed"
 #define LUA_DKJSON_TYPE "unsupported type"
+#define LUA_DKJSON_NUMBER "error encoding number"
 #define LUA_DKJSON_DEPTH_LIMIT "maximum table nesting depth exceeded" /* Replaces _CYCLE */
 
 #define LUA_JSON_UNUSED(x) ((void)(x))
@@ -462,6 +463,7 @@ namespace LuaSAX {
   private:
     int flags; /* Configuration flags */
     int max_depth; /* Maximum recursive depth */
+    int stateidx;  /* Stack index of "state" table */
     std::vector<Key> order; /* Key-ordering list */
 
     /*
@@ -510,9 +512,9 @@ namespace LuaSAX {
     }
 
   public:
-    Writer() : flags(JSON_DEFAULT), max_depth(JSON_DEFAULT_DEPTH) { }
-    Writer(int _flags, int _maxdepth, std::vector<Key> &_order)
-      : flags(_flags), max_depth(_maxdepth), order(_order) { }
+    Writer() : flags(JSON_DEFAULT), max_depth(JSON_DEFAULT_DEPTH), stateidx(-1) { }
+    Writer(int _flags, int _maxdepth, int _state, std::vector<Key> &_order)
+      : flags(_flags), max_depth(_maxdepth), stateidx(_state), order(_order) { }
 
     int GetFlags() { return flags; }
     int GetMaxDepth() { return max_depth; }
@@ -520,6 +522,33 @@ namespace LuaSAX {
 
     Writer &SetFlags(int f) { flags = f; return *this; }
     Writer &SetMaxDepth(int d) { max_depth = d; return *this; }
+
+    template<typename Writer>
+    bool handle_exception(lua_State *L, Writer *writer, int idx, int depth,
+                                      const char *reason, const char **output) {
+      bool result = false;
+      if (stateidx >= 0 && lua_istable(L, stateidx)) {
+        luaL_checkstack(L, 3, "exception handler");
+        lua_getfield(L, stateidx, "exception"); // [function]
+        if (lua_isfunction(L, -1)) {
+          lua_pushstring(L, reason);  // [function, reason]
+          lua_pushvalue(L, JSON_REL_INDEX(idx, 2));  // [function, reason, value]
+          lua_call(L, 2, 2);  // [ r_value, r_reason]
+          if (lua_isnil(L, -2)) {
+            *output = luaL_optstring(L, -1, NULL);
+          }
+          else {
+            encodeValue(L, writer, -2, depth + 1);
+            result = true;
+          }
+          lua_pop(L, 2);  // [function]
+        }
+        else {
+          lua_pop(L, 1);  // []
+        }
+      }
+      return result;
+    }
 
     template<typename Writer>
     void encodeValue(lua_State *L, Writer *writer, int idx, int depth = 0) {
@@ -545,8 +574,14 @@ namespace LuaSAX {
 #endif
           }
           else if (!writer->Double((double)lua_tonumber(L, idx))) {
-            luaL_error(L, "error while encoding '%s'", lua_typename(L, LUA_TNUMBER));
-            return;
+            const char *output = NULL;
+            if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
+              if (output)
+                luaL_error(L, "%s", output);
+              else
+                luaL_error(L, "error while encoding '%s'", lua_typename(L, LUA_TNUMBER));
+              return;
+            }
           }
           break;
         }
@@ -570,8 +605,15 @@ namespace LuaSAX {
         case LUA_TNONE:
         default: {
           if (!encodeMetafield(L, writer, idx, depth)) {
-            luaL_error(L, LUA_DKJSON_TYPE " type '%s' is not supported by JSON.",
+            const char *output = NULL;
+            if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_TYPE, &output)) {
+              if (output)
+                luaL_error(L, "%s", output);
+              else
+                luaL_error(L, LUA_DKJSON_TYPE " type '%s' is not supported by JSON.",
                                              lua_typename(L, lua_type(L, idx)));
+              return;
+            }
           }
           break;
         }
@@ -614,10 +656,15 @@ namespace LuaSAX {
       size_t array_length;
       int top = lua_gettop(L);
       if (depth > max_depth) {
-        if (flags & JSON_ENCODER_NESTING)
-          writer->Null();
-        else
-          luaL_error(L, LUA_DKJSON_DEPTH_LIMIT);
+        const char *output = NULL;
+        if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_CYCLE, &output)) {
+          if (flags & JSON_ENCODER_NESTING)
+            writer->Null();
+          else if (output)
+            luaL_error(L, "%s", output);
+          else
+            luaL_error(L, LUA_DKJSON_DEPTH_LIMIT);
+        }
         return;
       }
 

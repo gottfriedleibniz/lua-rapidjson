@@ -68,7 +68,7 @@
 **      temporary when absent. Every table that is currently processed is used
 **      as key, the value is true.
 **
-**      [TODO]
+**      [TODO] - Partially implemented
 **      exception:  When exception is given, it will be called whenever the
 **      encoder cannot encode a given value. The parameters are reason, value,
 **      state and defaultmessage. reason is either "reference cycle", "custom

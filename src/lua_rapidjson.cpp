@@ -177,7 +177,7 @@ static int make_table_type (lua_State *L, int idx, const char *meta, const char 
 LUALIB_API int rapidjson_encode (lua_State *L) {
   LUA_JSON_CHECKSTACK(L, 4);
 
-  int level = 0, indent = 0;
+  int level = 0, indent = 0, state_idx = -1;
   int flags = JSON_DEFAULT, depth = JSON_DEFAULT_DEPTH;
   int decimals = rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
   std::vector<LuaSAX::Key> order;
@@ -193,6 +193,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
 
   if (lua_istable(L, 2)) { /* Parse all options from the argument table */
     LUA_JSON_CHECKSTACK(L, 3);
+    state_idx = 2;
 
     lua_pushnil(L);
     while (lua_next(L, 2)) { /* [key, value] */
@@ -240,7 +241,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     return luaL_argerror(L, 2, "optional table excepted");
   }
 
-  LuaSAX::Writer encode(flags, depth, order);
+  LuaSAX::Writer encode(flags, depth, state_idx, order);
   rapidjson::StringBuffer s;
   try {
     if (flags & JSON_PRETTY_PRINT) {
