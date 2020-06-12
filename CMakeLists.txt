@@ -4,6 +4,7 @@ project(lua-rapidjson)
 option (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
 option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
 option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
+option (GRIT54_TTYPE "table.type API" OFF)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -67,6 +68,10 @@ if(UNIX)
     if (LUA_RAPIDJSON_EXPLICIT)
         add_definitions(-DLUA_RAPIDJSON_EXPLICIT)
     ENDIF()
+
+    if(GRIT54_TTYPE)
+        ADD_DEFINITIONS(-DGRIT_POWER_TTYPE)
+    endif()
 
     IF(LUA_RAPIDJSON_BIT32)
        IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

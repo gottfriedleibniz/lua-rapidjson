@@ -183,6 +183,18 @@ namespace LuaSAX {
         lua_Integer n;
         size_t count = 0, max = 0;
         int stacktop = lua_gettop(L), i_idx = JSON_REL_INDEX(idx, 1);
+#if defined(GRIT_POWER_TTYPE)
+        switch (lua_tabletype(L, idx)) {
+          case LUA_TTEMPTY: *array_length = 0; return 1;
+          case LUA_TTARRAY:
+            if (!(flags & JSON_ARRAY_WITH_HOLES)) {
+              *array_length = lua_rawlen(L, idx);
+              return 1;
+            }
+            break;
+          default: break;
+        }
+#endif
 
         lua_pushnil(L);
         while (lua_next(L, i_idx)) { /* [key, value] */
