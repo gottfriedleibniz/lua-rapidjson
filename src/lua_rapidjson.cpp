@@ -116,6 +116,7 @@ static const char *const opts[] = {
   LUA_RAPIDJSON_REG_INDENT,
   LUA_RAPIDJSON_REG_MAXDEC,
   "nesting",
+  "keyorder",
   NULL
 };
 
@@ -133,6 +134,7 @@ static const int optsnum[] = {
   JSON_ENCODER_INDENT,
   JSON_ENCODER_DECIMALS,
   JSON_ENCODER_NESTING,
+  JSON_TABLE_KEY_ORDER,
 };
 
 namespace LuaSAX {
@@ -178,6 +180,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   int level = 0, indent = 0;
   int flags = JSON_DEFAULT, depth = JSON_DEFAULT_DEPTH;
   int decimals = rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
+  std::vector<LuaSAX::Key> order;
 
   /* Parse default options */
   luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
@@ -221,6 +224,12 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
           if (indent < 0 || indent >= 4)
             return luaL_error(L, "invalid indentation index");
           break;
+        case JSON_TABLE_KEY_ORDER: {
+          if (lua_istable(L, -1)) {
+            if (LuaSAX::populate_key_vector(L, -1, order) != 0)
+              return luaL_error(L, "invalid key_order element");
+          }
+        }
         default:
           break;
       }
@@ -231,7 +240,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     return luaL_argerror(L, 2, "optional table excepted");
   }
 
-  LuaSAX::Writer encode(flags, depth);
+  LuaSAX::Writer encode(flags, depth, order);
   rapidjson::StringBuffer s;
   try {
     if (flags & JSON_PRETTY_PRINT) {

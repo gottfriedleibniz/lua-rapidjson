@@ -50,7 +50,6 @@
 **      indent: When indent (a boolean) is set, the created string will contain
 **        newlines and indentations. Otherwise it will be one long line.
 **
-**      [TODO]
 **      keyorder: an array to specify the ordering of keys in the encoded
 **      output. If an object has keys which are not in this array they are
 **      written after the sorted keys.

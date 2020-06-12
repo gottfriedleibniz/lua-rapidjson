@@ -7,6 +7,7 @@
   #define RAPIDJSON_SSE2
 #endif
 
+#include <functional>
 #include <cstring>
 #include <vector>
 #include <math.h>
@@ -94,6 +95,7 @@ extern "C" {
 #define JSON_ENCODER_INDENT     0x200 /* Reserved */
 #define JSON_ENCODER_DECIMALS   0x400
 #define JSON_ENCODER_NESTING    0x800 /* Push json.nill() instead of throwing a LUA_DKJSON_DEPTH_LIMIT error */
+#define JSON_TABLE_KEY_ORDER    0x1000 /* Reserved */
 
 #define JSON_DEFAULT (JSON_LUA_NILL)
 #define JSON_DEFAULT_DEPTH 128
@@ -192,7 +194,7 @@ namespace LuaSAX {
     return is;
   }
 
-  struct Key {
+  struct Key : std::unary_function<Key, bool> {
     bool is_number;
     lua_Number number;
     const char *key;
@@ -205,7 +207,49 @@ namespace LuaSAX {
     bool operator<(const Key &rhs) const {
       return strcmp(key, rhs.key) < 0;
     }
+
+    bool operator()(Key const& k) const {
+      if (is_number == k.is_number)
+        return is_number ? (number == k.number) : (strcmp(key, k.key) == 0);
+      return false;
+    }
   };
+
+  /*
+  ** Following JSON in which keys are either strings or numeric. Format and
+  ** append all string & numeric keys of the provided table (index) to a key
+  ** sink. Returning 0 on success, an error code otherwise.
+  */
+  static int populate_key_vector (lua_State *L, int idx, std::vector<Key> &sink) {
+    size_t i, length;
+#if LUA_VERSION_NUM >= 502
+    length = lua_rawlen(L, idx);
+#else
+    length = lua_objlen(L, idx);
+#endif
+
+    for (i = 1; i <= length; ++i) {
+      LuaSAX::Key key;
+      lua_rawgeti(L, -1, (lua_Integer)i);
+      if (lua_type(L, -1) == LUA_TSTRING) {
+        key.is_number = false;
+        key.number = 0;
+        key.key = lua_tolstring(L, -1, &key.len);
+      }
+      else if (lua_type(L, -1) == LUA_TNUMBER) {
+        key.is_number = true;
+        key.number = lua_tonumber(L, -1);
+        key.key = lua_tolstring(L, -1, &key.len); /* value converted to string */
+      }
+      else {
+        lua_pop(L, 1);
+        return -1; /* invalid key_order element */
+      }
+      sink.push_back(key);
+      lua_pop(L, 1);
+    }
+    return 0; /* LUA_OK */
+  }
 
   /** SAX Handler: https://rapidjson.org/classrapidjson_1_1_handler.html */
   struct Reader {
@@ -402,13 +446,60 @@ namespace LuaSAX {
   private:
     int flags; /* Configuration flags */
     int max_depth; /* Maximum recursive depth */
+    std::vector<Key> order; /* Key-ordering list */
+
+    /*
+    ** Append all string & numeric keys of the given table (index) that are not
+    ** contained in the writers ordering list to the provided key sink.
+    **
+    ** NOTE: It's assumed the "order" table is never of significant size (i.e,
+    ** less than thirty elements), where more efficient searching structures are
+    ** required.
+    */
+    void populate_unordered_vector(lua_State *L, int idx, std::vector<Key> &sink) {
+      int i_idx = JSON_REL_INDEX(idx, 1);  /* Account for key */
+      LUA_JSON_CHECKSTACK(L, 3);
+
+      lua_pushnil(L);
+      while (lua_next(L, i_idx)) { /* [key, value] */
+        if (lua_type(L, -2) == LUA_TSTRING) {
+          Key k;
+          k.is_number = false;
+          k.number = 0;
+          k.key = lua_tolstring(L, -2, &k.len);
+          if (std::find_if(order.begin(), order.end(), k) == order.end())
+            sink.push_back(k);
+        }
+        else if (lua_type(L, -2) == LUA_TNUMBER) {
+          Key k;
+          lua_pushvalue(L, -2); /* [key, value, number for formatting] */
+
+          k.is_number = true;
+          k.number = lua_tonumber(L, -1);
+          k.key = lua_tolstring(L, -1, &k.len);
+          if (std::find_if(order.begin(), order.end(), k) == order.end())
+            sink.push_back(k);
+
+          lua_pop(L, 1); /* [key, value] */
+        }
+#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
+        else {
+          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          return;
+        }
+#endif
+        lua_pop(L, 1); /* [key] */
+      }
+    }
 
   public:
     Writer() : flags(JSON_DEFAULT), max_depth(JSON_DEFAULT_DEPTH) { }
-    Writer(int _flags, int _maxdepth) : flags(_flags), max_depth(_maxdepth) { }
+    Writer(int _flags, int _maxdepth, std::vector<Key> &_order)
+      : flags(_flags), max_depth(_maxdepth), order(_order) { }
 
     int GetFlags() { return flags; }
     int GetMaxDepth() { return max_depth; }
+    const std::vector<Key> &GetKeyOrder() const { return order; }
 
     Writer &SetFlags(int f) { flags = f; return *this; }
     Writer &SetMaxDepth(int d) { max_depth = d; return *this; }
@@ -483,41 +574,13 @@ namespace LuaSAX {
                        && (array_length > 0 || (flags & JSON_EMPTY_AS_ARRAY))) {
         encode_array(L, writer, idx, array_length, depth);
       }
-      else if ((flags & JSON_SORT_KEYS) == 0) /* Treat table as object */
+      else if ((flags & JSON_SORT_KEYS) == 0 && order.size() == 0) /* Treat table as object */
         encodeObject(L, writer, idx, depth);
       else {
-        int i_idx = JSON_REL_INDEX(idx, 1);  /* Account for key */
-        std::vector<Key> keys;  /* Collect all table keys  */
-        LUA_JSON_CHECKSTACK(L, 3);
-
-        lua_pushnil(L);
-        while (lua_next(L, i_idx)) { /* [key][value] */
-          if (lua_type(L, -2) == LUA_TSTRING) {
-            Key k;
-            k.is_number = false;
-            k.number = 0;
-            k.key = lua_tolstring(L, -2, &k.len);
-            keys.push_back(k);
-          }
-          else if (lua_type(L, -2) == LUA_TNUMBER) {
-            Key k;
-            lua_pushvalue(L, -2); /* [key, value, number for formatting] */
-
-            k.is_number = true;
-            k.number = lua_tonumber(L, -1);
-            k.key = lua_tolstring(L, -1, &k.len);
-            keys.push_back(k);
-            lua_pop(L, 1); /* [key, value] */
-          }
-#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
-          else {
-            luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
-            return;
-          }
-#endif
-          lua_pop(L, 1); /* [key] */
-        }
-        std::sort(keys.begin(), keys.end());
+        std::vector<Key> keys; /* All keys not contained in 'order' */
+        populate_unordered_vector(L, idx, keys);
+        if (flags & JSON_SORT_KEYS)
+          std::sort(keys.begin(), keys.end());
         encodeObject(L, writer, idx, depth, keys);
       }
     }
@@ -573,6 +636,23 @@ namespace LuaSAX {
       LUA_JSON_CHECKSTACK(L, 2);
 
       writer->StartObject();
+
+      /* Keys in a predefined order */
+      std::vector<Key>::const_iterator oi = order.end();
+      for (std::vector<Key>::iterator i = order.begin(); i != oi; ++i) {
+        if (i->is_number)
+          lua_pushnumber(L, i->number);
+        else
+          lua_pushlstring(L, i->key, i->len); /* sorted key */
+        lua_gettable(L, i_idx);
+        if (!lua_isnil(L, -1)) {
+          writer->Key(i->key, static_cast<rapidjson::SizeType>(i->len));
+          encodeValue(L, writer, -1, depth);
+        }
+        lua_pop(L, 1);
+      }
+
+      /* Keys not in a predefined order */
       std::vector<Key>::const_iterator e = keys.end();
       for (std::vector<Key>::const_iterator i = keys.begin(); i != e; ++i) {
         writer->Key(i->key, static_cast<rapidjson::SizeType>(i->len));
