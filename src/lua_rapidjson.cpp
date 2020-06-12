@@ -118,6 +118,7 @@ static const char *const opts[] = {
   "nesting",
   "keyorder",
   "decoder_preset",
+  "vectorarray",
   NULL
 };
 
@@ -137,6 +138,7 @@ static const int optsnum[] = {
   JSON_ENCODER_NESTING,
   JSON_TABLE_KEY_ORDER,
   JSON_DECODER_PRESET,
+  JSON_ENCODER_ARRAY_VECTOR,
 };
 
 /* */
@@ -213,6 +215,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     while (lua_next(L, 2)) { /* [key, value] */
       int opt;
       switch ((opt = optsnum[luaL_optcheckoption(L, -2, NULL, opts, 0x0)])) {
+        case JSON_ENCODER_ARRAY_VECTOR:
         case JSON_LUA_NILL:
         case JSON_PRETTY_PRINT:
         case JSON_SORT_KEYS:
@@ -418,6 +421,7 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
   int opt;
   lua_Integer v;
   switch ((opt = optsnum[luaL_checkoption(L, 1, NULL, opts)])) {
+    case JSON_ENCODER_ARRAY_VECTOR:
     case JSON_LUA_NILL:
     case JSON_PRETTY_PRINT:
     case JSON_SORT_KEYS:
@@ -459,6 +463,7 @@ LUALIB_API int rapidjson_getoption (lua_State *L) {
   int opt;
   lua_Integer flags = 0;
   switch ((opt = optsnum[luaL_checkoption(L, 1, NULL, opts)])) {
+    case JSON_ENCODER_ARRAY_VECTOR:
     case JSON_LUA_NILL:
     case JSON_PRETTY_PRINT:
     case JSON_SORT_KEYS:

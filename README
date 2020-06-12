@@ -1,8 +1,8 @@
-lua-rapidjson: Development Branch
+lua-rapidjson: grit/cfxLua Development Branch
 ===
 
 lua-rapidjson is a rapidjson (https://github.com/Tencent/rapidjson) binding for
-Lua 5.1, 5.2, 5.3, and 5.4 with the intention of being pseudo-ABI compatible
+cfxLua 5.3 and cfxLua 5.4 with the intention of being pseudo-ABI compatible
 with dkjson (https://github.com/LuaDist/dkjson).
 
 API:
