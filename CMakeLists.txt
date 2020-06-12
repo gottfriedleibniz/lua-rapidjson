@@ -1,26 +1,13 @@
 cmake_minimum_required(VERSION 2.8.0 FATAL_ERROR)
 
 project(lua-rapidjson)
+option (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
+option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
+option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-endif()
-
-if(NOT LUA_RAPIDJSON_VERSION)
-    find_package(Git)
-    if(GIT_FOUND)
-        execute_process(COMMAND ${GIT_EXECUTABLE} describe --dirty
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            OUTPUT_VARIABLE LUA_RAPIDJSON_VERSION
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    endif()
-endif()
-
-if (LUA_RAPIDJSON_VERSION)
-    message("-- LUA_RAPIDJSON_VERSION: ${LUA_RAPIDJSON_VERSION}")
-    add_definitions(-DLUA_RAPIDJSON_VERSION="${LUA_RAPIDJSON_VERSION}")
 endif()
 
 if(UNIX)
@@ -31,12 +18,68 @@ if(UNIX)
         set(PLAT "linux")
         set(LINK_FLAGS "-shared")
     endif(APPLE)
-    add_compile_options(-g -Wall -fPIC)
+
+    # Compiler options taken from Lua: lua/blob/master/makefile
+    add_compile_options(-fPIC
+        -fmax-errors=5
+        -Wall
+        -Wextra
+        -Wshadow
+        -Wsign-compare
+        -Wundef
+        -Wwrite-strings
+        -Wredundant-decls
+        -Wdisabled-optimization
+        -Wdouble-promotion
+        -Wlogical-op
+        -Wno-aggressive-loop-optimizations
+        # the next warnings might be useful sometimes, but usually they generate too much noise
+        -Werror
+        -Wconversion
+        -Wsign-conversion
+        -Wstrict-overflow=2
+        -Wformat=2
+        -Wcast-qual
+    )
+
+    # The next warnings are neither valid nor needed for C++
+    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "\
+        -Wdeclaration-after-statement \
+        -Wmissing-prototypes \
+        -Wnested-externs \
+        -Wstrict-prototypes \
+        -Wc++-compat \
+        -Wold-style-definition"
+    )
+
     include(CheckCXXCompilerFlag)
     CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_ARCH_NATIVE)
     if (COMPILER_SUPPORTS_ARCH_NATIVE)
         add_compile_options(-march=native)
     endif()
+
+    if(LUA_RAPIDJSON_DEBUG)
+        add_compile_options(-O0 -g)
+        add_definitions(-DLUA_USER_H="ltests.h")
+    else()
+        add_compile_options(-O3)
+    endif()
+
+    if (LUA_RAPIDJSON_EXPLICIT)
+        add_definitions(-DLUA_RAPIDJSON_EXPLICIT)
+    ENDIF()
+
+    IF(LUA_RAPIDJSON_BIT32)
+       IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+          set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
+          set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
+          set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
+       ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+          set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
+          set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
+          set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
+       ENDIF()
+    ENDIF()
 else(UNIX)
     if(WIN32)
         set(PLAT "win32")
@@ -83,10 +126,10 @@ set(RAPIDJSON_INCLUDE_DIRS ${source_dir}/include)
 include_directories(${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
 
 set(SOURCES
-    src/luax.hpp
-    src/rapidjson.cpp
-    src/values.cpp
-    src/values.hpp
+    src/StringStream.hpp
+    src/lua_rapidjson.hpp
+    src/lua_rapidjsonlib.h
+    src/lua_rapidjson.cpp
 )
 
 add_library(lua-rapidjson MODULE ${SOURCES})
