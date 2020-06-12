@@ -29,6 +29,7 @@ extern "C" {
   #include <lauxlib.h>
 }
 
+#define LUA_RAPIDJSON_META_TOJSON "__tojson"
 #define LUA_RAPIDJSON_META_ORDER "__jsonorder"
 #define LUA_RAPIDJSON_META_TYPE "__jsontype"
 #define LUA_RAPIDJSON_TYPE_ARRAY "array"
@@ -554,11 +555,44 @@ namespace LuaSAX {
         case LUA_TTHREAD:
         case LUA_TNONE:
         default: {
-          luaL_error(L, LUA_DKJSON_TYPE " type '%s' is not supported by JSON.",
+          if (!encodeMetafield(L, writer, idx, depth)) {
+            luaL_error(L, LUA_DKJSON_TYPE " type '%s' is not supported by JSON.",
                                              lua_typename(L, lua_type(L, idx)));
+          }
           break;
         }
       }
+    }
+
+    /*
+    ** TODO: The "depth" parameter isn't propagated to the meta-function,
+    ** therefore, there's the potential of infinite looping (or stack overflows)
+    */
+    template<typename Writer>
+    bool encodeMetafield(lua_State *L, Writer *writer, int idx, int depth) {
+      LUA_JSON_UNUSED(depth);
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0)
+        return false;
+
+      if (lua_type(L, -1) == LUA_TFUNCTION) {
+        lua_pushvalue(L, JSON_REL_INDEX(idx, 1));  /* [metafield, self] */
+        lua_call(L, 1, 1); /* [result] */
+        if (lua_type(L, -1) == LUA_TSTRING) {
+          size_t len;
+          const char *str = lua_tolstring(L, -1, &len);
+          writer->RawValue(str, len, rapidjson::Type::kObjectType);
+        }
+        else {
+          luaL_error(L, "Invalid %s result", LUA_RAPIDJSON_META_TOJSON);
+          return false;
+        }
+        lua_pop(L, 1); /* [] */
+      }
+      else {
+        luaL_error(L, "Invalid %s function", LUA_RAPIDJSON_META_TOJSON);
+        return false;
+      }
+      return true;
     }
 
     template<typename Writer>
@@ -573,7 +607,10 @@ namespace LuaSAX {
         return;
       }
 
-      if (table_is_json_array(L, idx, flags, &array_length)
+      if (encodeMetafield(L, writer, idx, depth)) {
+        /* Continue */
+      }
+      else if (table_is_json_array(L, idx, flags, &array_length)
                        && (array_length > 0 || (flags & JSON_EMPTY_AS_ARRAY))) {
         encode_array(L, writer, idx, array_length, depth);
       }

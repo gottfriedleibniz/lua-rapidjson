@@ -4,18 +4,17 @@
 **  <metatable>.__jsonorder
 **    __jsonorder can overwrite the keyorder for a specific table.
 **
-**  [TODO]
 **  <metatable>.__tojson (self, state)
 **    You can provide your own __tojson function in a metatable. In this
 **    function you can either add directly to the buffer and return true, or you
 **    can return a string. On errors nil and a message should be returned.
 **
-**  [TODO]
+**  [compat.lua]
 **  json.quotestring (string): Quote a UTF-8 string and escape critical
 **    characters using JSON escape sequences. This function is only necessary
 **    when you build your own __tojson functions.
 **
-**  [TODO]
+**  [compat.lua]
 **  json.encodeexception (reason, value, state, defaultmessage): This function
 **    can be used as value to the exception option. Instead of raising an error
 **    this function encodes the error message as a string. This can help to
