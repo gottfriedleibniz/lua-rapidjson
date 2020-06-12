@@ -16,49 +16,49 @@ describe('rapidjson.dump()', function()
     os.remove('dump.json')
   end)
   it('when load valid json file', function()
-    local e, a = check('rapidjson/bin/jsonchecker/pass1.json')
+    local e, a = check('rapidjson/src/rapidjson/bin/jsonchecker/pass1.json')
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass2.json'))
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass3.json'))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass2.json'))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass3.json'))
   end)
 
   it('should dump with pretty option = true', function()
     local option = {pretty=true}
-    local e, a = check('rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check('rapidjson/src/rapidjson/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should dump with pretty option = false', function()
     local option = {pretty=false}
-    local e, a = check('rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check('rapidjson/src/rapidjson/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should dump with empty option', function()
     local option = {}
-    local e, a = check('rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check('rapidjson/src/rapidjson/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check('rapidjson/src/rapidjson/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should not dump with option other than table or nil', function()
@@ -85,11 +85,11 @@ describe('rapidjson.dump()', function()
 
   it('should handle utf-8 string', function()
     rapidjson.dump({
-    	["en"] = "I can eat glass and it doesn't hurt me.",
-    	["zh-Hant"] = "我能吞下玻璃而不傷身體。",
-    	["zh-Hans"] = "我能吞下玻璃而不伤身体。",
-    	["ja"] = "私はガラスを食べられます。それは私を傷つけません。",
-    	["ko"] = "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
+        ["en"] = "I can eat glass and it doesn't hurt me.",
+        ["zh-Hant"] = "我能吞下玻璃而不傷身體。",
+        ["zh-Hans"] = "我能吞下玻璃而不伤身体。",
+        ["ja"] = "私はガラスを食べられます。それは私を傷つけません。",
+        ["ko"] = "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
     }, "dump.json", {sort_keys=true})
 
     assert.are.equal(

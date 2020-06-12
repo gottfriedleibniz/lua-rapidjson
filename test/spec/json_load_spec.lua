@@ -1,7 +1,5 @@
 --luacheck: ignore describe it
-local utf8 = require "lua-utf8" -- luarocks install luautf8
 describe('rapidjson.load()', function()
-  local rapidjson = require('rapidjson')
   describe('report error', function()
     it('when load file not exist', function()
       assert.are.has_error(function()
@@ -9,135 +7,136 @@ describe('rapidjson.load()', function()
       end)
     end)
   end)
+
   describe('should return nil', function()
     it('when load bad json file', function()
-      local r, m
+      local r, o, m
 
-      r, m = rapidjson.load('test/spec/empty-file.json')
+      r, o, m = rapidjson.load('test/spec/empty-file.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail10.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail11.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail11.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail12.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail12.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail13.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail13.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail14.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail14.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail15.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail15.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail16.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail16.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail17.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail17.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail19.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail19.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail2.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail2.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail20.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail20.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail21.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail21.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail22.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail22.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail23.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail23.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail24.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail24.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail25.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail25.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail26.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail26.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail27.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail27.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail28.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail28.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail29.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail29.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail3.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail3.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail30.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail30.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail31.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail31.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail32.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail32.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail33.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail33.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail4.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail4.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail5.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail5.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail6.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail6.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail7.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail7.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail8.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail8.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, m = rapidjson.load('rapidjson/bin/jsonchecker/fail9.json')
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
     end)
@@ -145,7 +144,7 @@ describe('rapidjson.load()', function()
     describe('should return valid table', function()
       it('when load valid json file', function()
         local a, e
-        a = rapidjson.load('rapidjson/bin/jsonchecker/pass1.json')
+        a = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/pass1.json')
         e = {
             "JSON Test Pattern pass1",
             {["object with 1 member"]={"array with 1 element"}},
@@ -205,10 +204,10 @@ describe('rapidjson.load()', function()
         a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
         assert.are.same(e, a)
 
-        a = rapidjson.load('rapidjson/bin/jsonchecker/pass2.json')
+        a = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/pass2.json')
         assert.are.same({{{{{{{{{{{{{{{{{{{"Not too deep"}}}}}}}}}}}}}}}}}}}, a)
 
-        a = rapidjson.load('rapidjson/bin/jsonchecker/pass3.json')
+        a = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/pass3.json')
         assert.are.same({
             ["JSON Test Pattern pass3"] = {
                 ["The outermost value"] = "must be an object or array.",
@@ -226,22 +225,22 @@ describe('rapidjson.load()', function()
       -- Non utf8 not supported yet.
       it('when input json file is not utf-8', function()
         local e = {
-        	["en"] = "I can eat glass and it doesn't hurt me.",
-        	["zh-Hant"] = "我能吞下玻璃而不傷身體。",
-        	["zh-Hans"] = "我能吞下玻璃而不伤身体。",
-        	["ja"] = "私はガラスを食べられます。それは私を傷つけません。",
-        	["ko"] = "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
+            ["en"] = "I can eat glass and it doesn't hurt me.",
+            ["zh-Hant"] = "我能吞下玻璃而不傷身體。",
+            ["zh-Hans"] = "我能吞下玻璃而不伤身体。",
+            ["ja"] = "私はガラスを食べられます。それは私を傷つけません。",
+            ["ko"] = "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
         }
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf16be.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf16bebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf16le.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf16lebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf32be.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf32bebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf32le.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf32lebom.json'))
-        assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf8.json'))
-        assert.are.same(e, rapidjson.load('rapidjson/bin/encodings/utf8bom.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf16be.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf16bebom.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf16le.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf16lebom.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf32be.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf32bebom.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf32le.json'))
+        --assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf32lebom.json'))
+        assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf8.json'))
+        assert.are.same(e, rapidjson.load('rapidjson/src/rapidjson/bin/encodings/utf8bom.json'))
       end)
     end)
   end)
