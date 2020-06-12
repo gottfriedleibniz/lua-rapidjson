@@ -380,8 +380,7 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
         r = reader.Parse<rapidjson::ParseFlag::kParseFullPrecisionFlag
           | rapidjson::ParseFlag::kParseCommentsFlag
           | rapidjson::ParseFlag::kParseTrailingCommasFlag
-          | rapidjson::ParseFlag::kParseNanAndInfFlag
-          | rapidjson::ParseFlag::kParseEscapedApostropheFlag>(s, handler);
+          | rapidjson::ParseFlag::kParseNanAndInfFlag>(s, handler);
         break;
       case JSON_DECODE_DEFAULT:
       default:
