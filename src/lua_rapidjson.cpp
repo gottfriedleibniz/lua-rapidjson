@@ -117,6 +117,7 @@ static const char *const opts[] = {
   LUA_RAPIDJSON_REG_MAXDEC,
   "nesting",
   "keyorder",
+  "decoder_preset",
   NULL
 };
 
@@ -135,6 +136,17 @@ static const int optsnum[] = {
   JSON_ENCODER_DECIMALS,
   JSON_ENCODER_NESTING,
   JSON_TABLE_KEY_ORDER,
+  JSON_DECODER_PRESET,
+};
+
+/* */
+static const char *const d_opts[] = {
+  "default", "extended", NULL
+};
+
+static const int d_optsnums[] = {
+  JSON_DECODE_DEFAULT,
+  JSON_DECODE_EXTENDED,
 };
 
 namespace LuaSAX {
@@ -179,6 +191,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
 
   int level = 0, indent = 0, state_idx = -1;
   int flags = JSON_DEFAULT, depth = JSON_DEFAULT_DEPTH;
+  int parsemode = JSON_DECODE_DEFAULT;
   int decimals = rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
   std::vector<LuaSAX::Key> order;
 
@@ -189,6 +202,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   indent = (int)geti(L, -1, LUA_RAPIDJSON_REG_INDENT, indent);
   level = (int)geti(L, -1, LUA_RAPIDJSON_REG_LEVEL, (indent == 0) ? 4 : 0);
   decimals = (int)geti(L, -1, LUA_RAPIDJSON_REG_MAXDEC, decimals);
+  parsemode = (int)getregi(L, LUA_RAPIDJSON_REG_PRESET, parsemode);
   lua_pop(L, 1);
 
   if (lua_istable(L, 2)) { /* Parse all options from the argument table */
@@ -251,16 +265,48 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
       if (flags & JSON_ARRAY_SINGLE_LINE)
         option = rapidjson::PrettyFormatOptions::kFormatSingleLineArray;
 
-      rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
-      writer.SetMaxDecimalPlaces(decimals);
-      writer.SetIndent(pretty_indent[indent], (unsigned int)level);
-      writer.SetFormatOptions(option);
-      encode.encodeValue(L, &writer, 1);
+      auto dowriting = [&](auto &writer) {
+        writer.SetMaxDecimalPlaces(decimals);
+        writer.SetIndent(pretty_indent[indent], (unsigned int)level);
+        writer.SetFormatOptions(option);
+        encode.encodeValue(L, &writer, 1);
+      };
+
+      switch (parsemode) {
+        case JSON_DECODE_EXTENDED: {
+          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
+            rapidjson::CrtAllocator, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+          dowriting(writer);
+          break;
+        }
+        case JSON_DECODE_DEFAULT:
+        default: {
+          rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
+          dowriting(writer);
+          break;
+        }
+      }
     }
     else {
-      rapidjson::Writer<rapidjson::StringBuffer> writer(s);
-      writer.SetMaxDecimalPlaces(decimals);
-      encode.encodeValue(L, &writer, 1);
+      auto dowriting = [&](auto &writer) {
+        writer.SetMaxDecimalPlaces(decimals);
+        encode.encodeValue(L, &writer, 1);
+      };
+
+      switch (parsemode) {
+        case JSON_DECODE_EXTENDED: {
+          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
+            rapidjson::CrtAllocator, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+          dowriting(writer);
+          break;
+        }
+        case JSON_DECODE_DEFAULT:
+        default: {
+          rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+          dowriting(writer);
+          break;
+        }
+      }
     }
   }
   catch (...) {
@@ -277,6 +323,7 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   int objectarg = -1;
   int arrayarg = -1;
   int top = lua_gettop(L);
+  int parsemode = (int)getregi(L, LUA_RAPIDJSON_REG_PRESET, JSON_DECODE_DEFAULT);
   lua_Integer flags = getregi(L, LUA_RAPIDJSON_REG_FLAGS, JSON_DEFAULT);
 
   size_t len = 0, position = 0;
@@ -324,7 +371,21 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   rapidjson::Reader reader;
   rapidjson::extend::StringStream s(contents + (position - 1), len - (position - 1));
   try {
-    rapidjson::ParseResult r = reader.Parse(s, handler);
+    rapidjson::ParseResult r;
+    switch (parsemode) {
+      case JSON_DECODE_EXTENDED:
+        r = reader.Parse<rapidjson::ParseFlag::kParseFullPrecisionFlag
+          | rapidjson::ParseFlag::kParseCommentsFlag
+          | rapidjson::ParseFlag::kParseTrailingCommasFlag
+          | rapidjson::ParseFlag::kParseNanAndInfFlag
+          | rapidjson::ParseFlag::kParseEscapedApostropheFlag>(s, handler);
+        break;
+      case JSON_DECODE_DEFAULT:
+      default:
+        r = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags>(s, handler);
+        break;
+    }
+
     if (r.IsError()) {
 #if defined(LUA_RAPIDJSON_EXPLICIT)
       return luaL_error(L, "error while decoding: %s (%d)",
@@ -384,6 +445,10 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
       if ((v = luaL_checkinteger(L, 2)) >= 0)
         setregi(L, LUA_RAPIDJSON_REG_MAXDEC, v);
       break;
+    case JSON_DECODER_PRESET:
+      v = luaL_optcheckoption(L, 2, NULL, d_opts, JSON_DECODE_DEFAULT);
+      setregi(L, LUA_RAPIDJSON_REG_PRESET, d_optsnums[v]);
+      break;
     default:
       break;
   }
@@ -417,6 +482,13 @@ LUALIB_API int rapidjson_getoption (lua_State *L) {
       flags = getregi(L, LUA_RAPIDJSON_REG_MAXDEC,
           rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces);
       lua_pushinteger(L, flags);
+      break;
+    case JSON_DECODER_PRESET:
+      flags = getregi(L, LUA_RAPIDJSON_REG_PRESET, JSON_DECODE_DEFAULT);
+      if (JSON_DECODE_DEFAULT <= flags && flags <= JSON_DECODE_EXTENDED)
+        lua_pushstring(L, d_opts[flags]);
+      else
+        lua_pushnil(L);
       break;
     default:
       return 0;

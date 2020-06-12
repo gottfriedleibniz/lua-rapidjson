@@ -44,6 +44,7 @@ extern "C" {
 #define LUA_RAPIDJSON_REG_LEVEL "level"  /* PrettyWriter */
 #define LUA_RAPIDJSON_REG_INDENT "indent"
 #define LUA_RAPIDJSON_REG_MAXDEC "decimal_count" /* Writer */
+#define LUA_RAPIDJSON_REG_PRESET "decoder_preset"
 
 #define LUA_DKJSON_CYCLE "reference cycle"
 #define LUA_DKJSON_FAIL "custom encoder failed"
@@ -99,6 +100,15 @@ extern "C" {
 #define JSON_ENCODER_DECIMALS   0x400
 #define JSON_ENCODER_NESTING    0x800 /* Push json.nill() instead of throwing a LUA_DKJSON_DEPTH_LIMIT error */
 #define JSON_TABLE_KEY_ORDER    0x1000 /* Reserved */
+#define JSON_DECODER_PRESET     0x2000 /* Preset flags for decoding */
+
+/* kParseDefaultFlags */
+#define JSON_DECODE_DEFAULT 0x0
+/*
+** kParseFullPrecisionFlag + kParseCommentsFlag + kParseTrailingCommasFlag
+** kParseNanAndInfFlag + kParseEscapedApostropheFlag
+*/
+#define JSON_DECODE_EXTENDED 0x1
 
 #define JSON_DEFAULT (JSON_LUA_NILL)
 #define JSON_DEFAULT_DEPTH 128

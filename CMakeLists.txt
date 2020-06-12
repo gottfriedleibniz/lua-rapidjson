@@ -24,7 +24,6 @@ if(UNIX)
         -fmax-errors=5
         -Wall
         -Wextra
-        -Wshadow
         -Wsign-compare
         -Wundef
         -Wwrite-strings
