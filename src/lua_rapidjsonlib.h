@@ -1,7 +1,6 @@
 /*
 ** dkjson compatibility:
 **
-**  [TODO]
 **  <metatable>.__jsonorder
 **    __jsonorder can overwrite the keyorder for a specific table.
 **
