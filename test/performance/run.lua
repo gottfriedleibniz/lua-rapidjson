@@ -68,13 +68,13 @@ local function profile(jsonfile, times)
 end
 
 local function main()
-	profile('performance/nulls.json')
-	profile('performance/booleans.json')
-	profile('performance/guids.json')
-	profile('performance/paragraphs.json')
-	profile('performance/floats.json')
-	profile('performance/integers.json')
-	profile('performance/mixed.json')
+	profile('rapidjson/src/rapidjson/bin/types/nulls.json')
+	profile('rapidjson/src/rapidjson/bin/types/booleans.json')
+	profile('rapidjson/src/rapidjson/bin/types/guids.json')
+	profile('rapidjson/src/rapidjson/bin/types/paragraphs.json')
+	profile('rapidjson/src/rapidjson/bin/types/floats.json')
+	profile('rapidjson/src/rapidjson/bin/types/integers.json')
+	profile('rapidjson/src/rapidjson/bin/types/mixed.json')
 end
 
 local r, m = pcall(main)

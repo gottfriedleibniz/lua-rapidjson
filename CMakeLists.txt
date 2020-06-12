@@ -46,22 +46,43 @@ else(UNIX)
     endif(WIN32)
 endif(UNIX)
 
+#-------------------------------------------------------------------------------
+# Lua dependency
+#-------------------------------------------------------------------------------
 if(NOT LUA_INCLUDE_DIR OR (WIN32 AND NOT LUA_LIBRARIES))
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
     find_package(Lua REQUIRED)
 endif()
+#-------------------------------------------------------------------------------
 
-if (NOT RAPIDJSON_INCLUDE_DIRS)
-    set(RAPIDJSON_INCLUDE_DIRS rapidjson/include)
-endif()
+#-------------------------------------------------------------------------------
+# rapidjson external dependency
+#-------------------------------------------------------------------------------
+set(LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson)
+
+include(ExternalProject)
+ExternalProject_Add(rapidjson
+    PREFIX ${LUA_RAPIDJSON}
+    GIT_REPOSITORY "https://github.com/Tencent/rapidjson.git"
+    GIT_TAG "master"
+    GIT_SHALLOW 1
+    CMAKE_ARGS += -DRAPIDJSON_BUILD_TESTS=OFF
+                  -DRAPIDJSON_BUILD_DOC=OFF
+                  -DRAPIDJSON_BUILD_EXAMPLES=OFF
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    UPDATE_COMMAND ""
+)
+
+# RapidJSON is a header-only library
+ExternalProject_Get_Property(rapidjson source_dir)
+set(RAPIDJSON_INCLUDE_DIRS ${source_dir}/include)
+#-------------------------------------------------------------------------------
 
 include_directories(${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
 
 set(SOURCES
-    src/Document.cpp
-    src/Schema.cpp
-    src/Userdata.hpp
-    src/file.hpp
     src/luax.hpp
     src/rapidjson.cpp
     src/values.cpp
@@ -69,6 +90,7 @@ set(SOURCES
 )
 
 add_library(lua-rapidjson MODULE ${SOURCES})
+add_dependencies(lua-rapidjson rapidjson)
 if(${CMAKE_VERSION} VERSION_LESS "3.1.0")
     if(CMAKE_COMPILER_IS_GNUCXX)
         execute_process(COMMAND "${CMAKE_CXX_COMPILER} -dumpversion" OUTPUT_VARIABLE GCC_VERSION)

@@ -13,7 +13,6 @@
 #  define RAPIDJSON_SSE2
 #endif
 
-#include "rapidjson/document.h"
 #include "rapidjson/encodedstream.h"
 #include "rapidjson/error/en.h"
 #include "rapidjson/error/error.h"
@@ -22,15 +21,12 @@
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/reader.h"
-#include "rapidjson/schema.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
 
-#include "Userdata.hpp"
 #include "values.hpp"
 #include "luax.hpp"
-#include "file.hpp"
 #include "StringStream.hpp"
 
 using namespace rapidjson;
@@ -109,23 +105,6 @@ static int json_decode(lua_State* L)
 }
 
 
-
-static int json_load(lua_State* L)
-{
-	const char* filename = luaL_checklstring(L, 1, NULL);
-	FILE* fp = file::open(filename, "rb");
-	if (fp == NULL)
-		luaL_error(L, "error while open file: %s", filename);
-
-	char buffer[512];
-	FileReadStream fs(fp, buffer, sizeof(buffer));
-	AutoUTFInputStream<unsigned, FileReadStream> eis(fs);
-
-	int n = values::pushDecoded(L, eis);
-
-	fclose(fp);
-	return n;
-}
 
 struct Key
 {
@@ -349,23 +328,6 @@ static int json_encode(lua_State* L)
 }
 
 
-static int json_dump(lua_State* L)
-{
-	Encoder encoder(L, 3);
-
-	const char* filename = luaL_checkstring(L, 2);
-	FILE* fp = file::open(filename, "wb");
-	if (fp == NULL)
-		luaL_error(L, "error while open file: %s", filename);
-
-	char buffer[512];
-	FileWriteStream fs(fp, buffer, sizeof(buffer));
-	encoder.encode(L, &fs, 1);
-	fclose(fp);
-	return 0;
-}
-
-
 namespace values {
 	static int nullref = LUA_NOREF;
 	/**
@@ -383,19 +345,10 @@ static const luaL_Reg methods[] = {
 	{ "decode", json_decode },
 	{ "encode", json_encode },
 
-	// file <--> lua table
-	{ "load", json_load },
-	{ "dump", json_dump },
-
 	// special tags and functions
 	{ "null", values::json_null },
 	{ "object", json_object },
 	{ "array", json_array },
-
-	// JSON types
-	{ "Document", Userdata<Document>::create },
-	{ "SchemaDocument", Userdata<SchemaDocument>::create },
-	{ "SchemaValidator", Userdata<SchemaValidator>::create },
 
 	{NULL, NULL }
 };
@@ -420,10 +373,6 @@ LUALIB_API int luaopen_rapidjson(lua_State* L)
 
 	createSharedMeta(L, "json.object", "object");
 	createSharedMeta(L, "json.array", "array");
-
-	Userdata<Document>::luaopen(L);
-	Userdata<SchemaDocument>::luaopen(L);
-	Userdata<SchemaValidator>::luaopen(L);
 
 	return 1;
 }

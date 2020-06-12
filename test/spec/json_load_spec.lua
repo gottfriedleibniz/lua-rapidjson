@@ -13,7 +13,7 @@ describe('rapidjson.load()', function()
     it('when load bad json file', function()
       local r, m
 
-      r, m = rapidjson.load('spec/empty-file.json')
+      r, m = rapidjson.load('test/spec/empty-file.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
@@ -216,10 +216,10 @@ describe('rapidjson.load()', function()
             }
         }, a)
 
-        a = rapidjson.load('spec/empty-array.json')
+        a = rapidjson.load('test/spec/empty-array.json')
         assert.are.same({}, a)
 
-        a = rapidjson.load('spec/empty-object.json')
+        a = rapidjson.load('test/spec/empty-object.json')
         assert.are.same({}, a)
       end)
 
