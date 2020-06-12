@@ -304,16 +304,22 @@ namespace LuaSAX {
 
     lua_State *L;
     lua_Integer flags;
+    int nullarg;  /* Stack index of "null" arguments */
+    int objectarg;  /* Stack index of "object" metatable */
+    int arrayarg;  /* Stack index of "array" metatable */
     std::vector<Ctx> stack_;
     Ctx context_;
 
   public:
-    explicit Reader(lua_State *_L, lua_Integer _f = 0) : L(_L), flags(_f) {
+    explicit Reader(lua_State *_L, lua_Integer _f = 0, int _n = -1, int _o = -1, int _a = -1)
+      : L(_L), flags(_f), nullarg(_n), objectarg(_o), arrayarg(_a) {
       stack_.reserve(LUA_JSON_STACK_RESERVE);
     }
 
     bool Null() {
-      if ((flags & JSON_LUA_NILL))
+      if (nullarg >= 0)
+        lua_pushvalue(L, nullarg);
+      else if ((flags & JSON_LUA_NILL))
         lua_pushnil(L);
       else
         json_null(L);
@@ -389,7 +395,11 @@ namespace LuaSAX {
       if (lua_checkstack(L, 2)) { /* ensure room on the stack */
 #endif
         lua_createtable(L, 0, 0); /* mark as object */
-        luaL_getmetatable(L, LUA_RAPIDJSON_OBJECT);
+        if (objectarg >= 0)
+          lua_pushvalue(L, objectarg);
+        else {
+          luaL_getmetatable(L, LUA_RAPIDJSON_OBJECT);
+        }
         lua_setmetatable(L, -2);
 
         stack_.push_back(context_);
@@ -421,7 +431,11 @@ namespace LuaSAX {
       if (lua_checkstack(L, 2)) { /* ensure room on the stack */
 #endif
         lua_createtable(L, 0, 0); /* mark as array */
-        luaL_getmetatable(L, LUA_RAPIDJSON_ARRAY);
+        if (arrayarg >= 0)
+          lua_pushvalue(L, arrayarg);
+        else {
+          luaL_getmetatable(L, LUA_RAPIDJSON_ARRAY);
+        }
         lua_setmetatable(L, -2);
 
         stack_.push_back(context_);

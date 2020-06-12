@@ -83,19 +83,23 @@
 LUALIB_API int rapidjson_encode(lua_State *L);
 
 /*
-**  json.decode (string [, position [, null]])
+**  json.decode (string [, position [, null [, objectmeta [, arraymeta]]]])
 **    Decode string starting at position or at 1 if position was omitted.
 **
 **    "null": an optional value to be returned for null values. The default is
 **    nil, but you could set it to json.null or any other value.
 **
-**      Note: "null" has been replaced with a bit-flag. Mainly to avoid the
-**      headaches of managing the stack index (C-API only, Reader can accept an
-**      index and push that value whenever a Null() event is called).
+**      Default "null" functionality (when null is nil) has been replaced with a
+**      bit-flag.
 **
-**    Two metatables are created. Every array or object that is decoded gets
-**    a metatable with the "__jsontype" field set to either "array" or "object".
-**    If you want to provide your own metatables use the syntax
+**    "objectmeta"/"arraymeta": Every array or object that is decoded gets a
+**    metatable with the __jsontype field set to either array or object. To
+**    provide your own metatable or to prevent the assigning of metatables,
+**    these options exist.
+**
+**    The return values are the object or nil, the position of the next
+**    character that doesn't belong to the object, and in case of errors an
+**    error message.
 */
 LUALIB_API int rapidjson_decode(lua_State *L);
 

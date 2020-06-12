@@ -272,6 +272,9 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
 
 LUALIB_API int rapidjson_decode (lua_State *L) {
   int trailer = 0;
+  int nullarg = -1;
+  int objectarg = -1;
+  int arrayarg = -1;
   int top = lua_gettop(L);
   lua_Integer flags = getregi(L, LUA_RAPIDJSON_REG_FLAGS, JSON_DEFAULT);
 
@@ -296,19 +299,27 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 
   if (len == 0) {  /* Explicitly handle empty string ... */
     lua_pushnil(L);
+    lua_pushinteger(L, 0);
     lua_pushfstring(L, "%s (%d)", rapidjson::GetParseError_En(
                        rapidjson::ParseErrorCode::kParseErrorDocumentEmpty), 0);
-    return 2;
+    return 3;
   }
 
   /* Common suffix arguments */
   position = luaL_optsizet(L, trailer, 1);
   if (position == 0 || position > len)
     return luaL_error(L, "invalid position");
-  if (top >= (trailer + 1)) /* null now a boolean option */
-    flags |= lua_toboolean(L, (trailer + 1)) ? (flags | JSON_LUA_NILL) : (flags & ~JSON_LUA_NILL);
 
-  LuaSAX::Reader handler(L, flags);
+  nullarg = (top >= (trailer + 1)) ? (trailer + 1) : nullarg;
+  if (lua_isnil(L, trailer + 2)) {
+    objectarg = arrayarg = (trailer + 2);
+  }
+  else {
+    objectarg = lua_istable(L, trailer + 2) ? (trailer + 2) : objectarg;
+    arrayarg = lua_istable(L, trailer + 3) ? (trailer + 3) : arrayarg;
+  }
+
+  LuaSAX::Reader handler(L, flags, nullarg, objectarg, arrayarg);
   rapidjson::Reader reader;
   rapidjson::extend::StringStream s(contents + (position - 1), len - (position - 1));
   try {
@@ -320,9 +331,10 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #else
       lua_settop(L, top);
       lua_pushnil(L);
+      lua_pushinteger(L, (lua_Integer)r.Offset());
       lua_pushfstring(L, "%s (%d)", rapidjson::GetParseError_En(r.Code()), r.Offset());
 #endif
-      return 2;
+      return 3;
     }
   }
   catch (...) {
@@ -331,8 +343,9 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #else
     lua_settop(L, top);
     lua_pushnil(L);
+    lua_pushinteger(L, -1);
     lua_pushstring(L, LUA_DKJSON_FAIL);
-    return 2;
+    return 3;
 #endif
   }
 
