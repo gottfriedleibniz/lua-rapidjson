@@ -111,6 +111,9 @@ extern "C" {
 #define JSON_DECODER_PRESET     0x2000 /* Preset flags for decoding */
 #define JSON_ENCODER_ARRAY_VECTOR 0x4000 /* gritVectors encoded as arrays, otherwise x=x, y=y, objects*/
 
+#define JSON_DEFAULT (JSON_LUA_NILL | JSON_EMPTY_AS_ARRAY)
+#define JSON_DEFAULT_DEPTH 128
+
 /* kParseDefaultFlags */
 #define JSON_DECODE_DEFAULT 0x0
 /*
@@ -118,9 +121,6 @@ extern "C" {
 ** kParseNanAndInfFlag + kParseEscapedApostropheFlag
 */
 #define JSON_DECODE_EXTENDED 0x1
-
-#define JSON_DEFAULT (JSON_LUA_NILL)
-#define JSON_DEFAULT_DEPTH 128
 
 #if !defined(LUA_JSON_STACK_RESERVE)
   #define LUA_JSON_STACK_RESERVE 32
