@@ -42,7 +42,7 @@ describe('rapidjson.encode()', function()
 
 
   it('should encode empty object', function()
-    assert.are.equal('{}', rapidjson.encode({}))
+    assert.are.equal('[]', rapidjson.encode({}))
     assert.are.equal('{}', rapidjson.encode(setmetatable({}, {__jsontype='object'})))
     assert.are.equal('{}', rapidjson.encode(rapidjson.object()))
   end)
@@ -130,8 +130,9 @@ describe('rapidjson.encode()', function()
   end)
 
   it('should support empty_table_as_array options', function()
+    assert.are.equal('{"a":[]}', rapidjson.encode({a={}}))
+    assert.are.equal('{"a":{}}', rapidjson.encode({a={}}, {empty_table_as_array=false}))
     assert.are.equal('{"a":[]}', rapidjson.encode({a={}}, {empty_table_as_array=true}))
-    assert.are.equal('{"a":{}}', rapidjson.encode({a={}}))
   end)
   it('should support sort_keys and pretty options', function()
     assert.are.equal(
