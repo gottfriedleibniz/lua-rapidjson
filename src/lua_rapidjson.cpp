@@ -384,7 +384,8 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
         break;
       case JSON_DECODE_DEFAULT:
       default:
-        r = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags>(s, handler);
+        r = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags
+          | rapidjson::ParseFlag::kParseTrailingCommasFlag>(s, handler);
         break;
     }
 
