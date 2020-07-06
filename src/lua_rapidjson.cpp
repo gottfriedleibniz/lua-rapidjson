@@ -332,10 +332,6 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   size_t len = 0, position = 0;
   const char *contents = nullptr;
   switch (lua_type(L, 1)) {
-    case LUA_TSTRING:
-      trailer = 2;
-      contents = luaL_checklstring(L, 1, &len);
-      break;
     case LUA_TLIGHTUSERDATA: {
       luaL_checktype(L, 2, LUA_TNUMBER);
 
@@ -344,8 +340,14 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
       len = luaL_optsizet(L, 2, 0); /* Before offset for rapidjson compat */
       break;
     }
+    /*
+    ** fix: similar to dkjson, attempt to coerce non-string types to strings.
+    ** luaL_checklstring should throw an error when not possible
+    */
     default:
-      return luaL_argerror(L, 1, "required string or lightuserdata (points to a memory of a string)");
+      trailer = 2;
+      contents = luaL_checklstring(L, 1, &len);
+      break;
   }
 
   if (len == 0) {  /* Explicitly handle empty string ... */
