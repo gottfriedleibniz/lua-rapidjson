@@ -24,7 +24,11 @@
 #include <rapidjson/allocators.h>
 #include <rapidjson/stream.h>
 #include <rapidjson/encodedstream.h>
-#include <rapidjson/internal/clzll.h>
+#if defined(LUA_RAPIDJSON_COMPAT)
+  #include "compat_clzll.h"
+#else
+  #include <rapidjson/internal/clzll.h>
+#endif
 #include <rapidjson/internal/meta.h>
 #include <rapidjson/internal/stack.h>
 #include <rapidjson/internal/strtod.h>

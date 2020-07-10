@@ -110,14 +110,14 @@ endif()
 #-------------------------------------------------------------------------------
 # rapidjson external dependency
 #-------------------------------------------------------------------------------
-set(LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson)
+set(LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson/cfx)
 
 include(ExternalProject)
 ExternalProject_Add(rapidjson
     PREFIX ${LUA_RAPIDJSON}
     GIT_REPOSITORY "https://github.com/Tencent/rapidjson.git"
-    GIT_TAG "master"
-    GIT_SHALLOW 1
+    GIT_TAG "bfdcf4911047688fec49014d575433e2e5eb05be"
+    GIT_SHALLOW 0
     CMAKE_ARGS += -DRAPIDJSON_BUILD_TESTS=OFF
                   -DRAPIDJSON_BUILD_DOC=OFF
                   -DRAPIDJSON_BUILD_EXAMPLES=OFF
@@ -136,6 +136,7 @@ include_directories(${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
 
 set(SOURCES
     src/StringStream.hpp
+    src/compat_clzll.h
     src/reader_dkcompat.hpp
     src/lua_rapidjson.hpp
     src/lua_rapidjsonlib.h
