@@ -227,7 +227,7 @@ namespace LuaSAX {
         return max > 0 || (flags & JSON_EMPTY_AS_ARRAY);
       /* don't create an array with too many holes (inserted nils) */
       else if (flags & JSON_ARRAY_WITH_HOLES)
-        return ((max < LUA_DKJSON_TABLE_CUTOFF) || (count >= (max >> 2)));
+        return ((max < LUA_DKJSON_TABLE_CUTOFF) || (count >= (max >> 1)));
       return 0;
     }
 
