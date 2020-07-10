@@ -56,6 +56,13 @@ extern "C" {
 #define LUA_DKJSON_NUMBER "error encoding number"
 #define LUA_DKJSON_DEPTH_LIMIT "maximum table nesting depth exceeded" /* Replaces _CYCLE */
 
+/*
+** Threshold for table_is_json_array: If a table has an integer key greater than
+** this value, ensure at least half of the keys within the table have elements
+** to be encoded as an array.
+*/
+#define LUA_DKJSON_TABLE_CUTOFF 11
+
 #define LUA_JSON_UNUSED(x) ((void)(x))
 
 #if defined(LUA_RAPIDJSON_UNSAFE) /* Unsafe macro to disable checkstack */
@@ -106,7 +113,7 @@ extern "C" {
 #define JSON_TABLE_KEY_ORDER    0x1000 /* Reserved */
 #define JSON_DECODER_PRESET     0x2000 /* Preset flags for decoding */
 
-#define JSON_DEFAULT (JSON_LUA_NILL | JSON_EMPTY_AS_ARRAY)
+#define JSON_DEFAULT (JSON_LUA_NILL | JSON_EMPTY_AS_ARRAY | JSON_ARRAY_WITH_HOLES)
 #define JSON_DEFAULT_DEPTH 128
 
 /* kParseDefaultFlags */
@@ -162,43 +169,56 @@ namespace LuaSAX {
       return result;
     }
 
+    /*
+    ** encode2() doesn't give special treatment/priority to the __jsontype
+    ** metafield besides:
+    **    local isa, n = isarray (value)
+    **    if n == 0 and valmeta and valmeta.__jsontype == 'object' then
+    **      isa = false
+    **    end
+    */
     static bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length) {
+      int has_type = 0;
       int is_array = 0;
+      int stacktop = 0;
+      int i_idx = JSON_REL_INDEX(idx, 1);
+
+      lua_Integer n;
+      size_t count = 0, max = 0;
+
       LUA_JSON_CHECKSTACK(L, 2);
+      stacktop = lua_gettop(L);
+      has_type = has_json_type(L, idx, &is_array);
 
-      if (has_json_type(L, idx, &is_array)) {
-#if LUA_VERSION_NUM >= 502
-        *array_length = lua_rawlen(L, idx);
-#else
-        *array_length = lua_objlen(L, idx);
-#endif
-        return is_array;
-      }
-      else {
-        lua_Integer n;
-        size_t count = 0, max = 0;
-        int stacktop = lua_gettop(L), i_idx = JSON_REL_INDEX(idx, 1);
-
-        lua_pushnil(L);
-        while (lua_next(L, i_idx)) { /* [key, value] */
-          lua_pop(L, 1); /* [key] */
-          if (lua_json_isinteger(L, -1) /* && within range of size_t */
-              && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)) {
-            count++;
-            max = ((size_t)n) > max ? ((size_t)n) : max;
-          }
-          else {
-            lua_settop(L, stacktop);
-            return 0;
-          }
+      lua_pushnil(L);
+      while (lua_next(L, i_idx)) { /* [key, value] */
+        lua_pop(L, 1); /* [key] */
+        if (lua_json_isinteger(L, -1) /* && within range of size_t */
+            && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)) {
+          count++;
+          max = ((size_t)n) > max ? ((size_t)n) : max;
         }
-        *array_length = max;
-        lua_settop(L, stacktop);
-
-        if ((flags & JSON_ARRAY_WITH_HOLES) == JSON_ARRAY_WITH_HOLES)
-          return 1; /* All integer keys, insert nils. */
-        return max == count;
+        else {
+          lua_settop(L, stacktop);
+          return 0;
+        }
       }
+      *array_length = max;
+      lua_settop(L, stacktop);
+
+      /*
+      ** encode2: an empty Lua table as an object iff its given an object
+      ** __jsontype. (Library addition:) Otherwise, only encode an empty table
+      ** as an object if the JSON_EMPTY_AS_ARRAY is not set.
+      **/
+      if (max == 0 && has_type && !is_array)
+        return 0;
+      else if (max == count)
+        return max > 0 || (flags & JSON_EMPTY_AS_ARRAY);
+      /* don't create an array with too many holes (inserted nils) */
+      else if (flags & JSON_ARRAY_WITH_HOLES)
+        return ((max < LUA_DKJSON_TABLE_CUTOFF) || (count >= (max >> 2)));
+      return 0;
     }
   }
 
@@ -705,8 +725,7 @@ namespace LuaSAX {
       if (encodeMetafield(L, writer, idx, depth)) {
         /* Continue */
       }
-      else if (table_is_json_array(L, idx, flags, &array_length)
-                       && (array_length > 0 || (flags & JSON_EMPTY_AS_ARRAY))) {
+      else if (table_is_json_array(L, idx, flags, &array_length)) {
         encode_array(L, writer, idx, array_length, depth);
       }
       else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != 0) {
