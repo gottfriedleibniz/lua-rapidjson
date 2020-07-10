@@ -5,6 +5,7 @@ option (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
 option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
 option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
 option (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" ON)
+option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -71,6 +72,10 @@ if(UNIX)
 
     if (LUA_RAPIDJSON_COMPAT)
         add_definitions(-DLUA_RAPIDJSON_COMPAT)
+    ENDIF()
+
+    if (LUA_RAPIDJSON_SANITIZE_KEYS)
+        add_definitions(-DLUA_RAPIDJSON_SANITIZE_KEYS)
     ENDIF()
 
     IF(LUA_RAPIDJSON_BIT32)

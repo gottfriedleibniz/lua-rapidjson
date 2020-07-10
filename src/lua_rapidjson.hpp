@@ -55,6 +55,7 @@ extern "C" {
 #define LUA_DKJSON_TYPE "unsupported type"
 #define LUA_DKJSON_NUMBER "error encoding number"
 #define LUA_DKJSON_DEPTH_LIMIT "maximum table nesting depth exceeded" /* Replaces _CYCLE */
+#define LUA_DKJSON_KEY_TYPE "type '%s' is not supported as a key by JSON.\n"
 
 /*
 ** Threshold for table_is_json_array: If a table has an integer key greater than
@@ -254,7 +255,7 @@ namespace LuaSAX {
 
   /*
   ** Following JSON in which keys are either strings or numeric. Format and
-  ** append all string & numeric keys of the provided table (index) to a key
+  ** append all string & numeric keys of the provided array (index) to a key
   ** sink. Returning 0 on success, an error code otherwise.
   */
   static int populate_key_vector (lua_State *L, int idx, std::vector<Key> &sink) {
@@ -279,8 +280,13 @@ namespace LuaSAX {
         key.key = lua_tolstring(L, -1, &key.len); /* value converted to string */
       }
       else {
-        lua_pop(L, 1);
+#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
+        luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -1)));
         return -1; /* invalid key_order element */
+#else
+        lua_pop(L, 1);
+        continue;
+#endif
       }
       sink.push_back(key);
       lua_pop(L, 1);
@@ -557,7 +563,7 @@ namespace LuaSAX {
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -2)));
           return;
         }
 #endif
@@ -645,8 +651,10 @@ namespace LuaSAX {
           writer->String(s, static_cast<rapidjson::SizeType>(len));
           return;
         }
-        case LUA_TTABLE:
-          return encodeTable(L, writer, idx, depth + 1);
+        case LUA_TTABLE: {
+          encodeTable(L, writer, idx, depth + 1);
+          return;
+        }
         case LUA_TFUNCTION:
           if (LuaSAX::is_json_null(L, idx)) {
             writer->Null();
@@ -796,7 +804,7 @@ namespace LuaSAX {
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -2)));
           return;
         }
 #endif
