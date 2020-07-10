@@ -557,6 +557,11 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
   lua_pushliteral(L, LUA_RAPIDJSON_VERSION); lua_setfield(L, -2, "_VERSION");
   lua_pushliteral(L, LUA_RAPIDJSON_COPYRIGHT); lua_setfield(L, -2, "_COPYRIGHT");
   lua_pushliteral(L, LUA_RAPIDJSON_DESCRIPTION); lua_setfield(L, -2, "_DESCRIPTION");
+#if defined(LUA_RAPIDJSON_COMPAT)
+  lua_pushboolean(L, 1); lua_setfield(L, -2, "_COMPAT");
+#else
+  lua_pushboolean(L, 0); lua_setfield(L, -2, "_COMPAT");
+#endif
 
   /* Create json.null reference */
   lua_getfield(L, -1, "null");

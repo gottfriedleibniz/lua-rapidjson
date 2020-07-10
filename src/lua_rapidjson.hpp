@@ -19,7 +19,11 @@
 #include <rapidjson/filewritestream.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/rapidjson.h>
-#include <rapidjson/reader.h>
+#if defined(LUA_RAPIDJSON_COMPAT)
+  #include "reader_dkcompat.hpp"
+#else
+  #include <rapidjson/reader.h>
+#endif
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -327,77 +331,97 @@ namespace LuaSAX {
       stack_.reserve(LUA_JSON_STACK_RESERVE);
     }
 
-    bool Null() {
+#if defined(LUA_RAPIDJSON_COMPAT)
+    #define LUA_JSON_SUBMIT() if (!mapValue) { context_.submit(L); }
+    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__, bool mapValue = false)
+    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME(bool mapValue = false)
+
+    bool ImplicitArrayInObjectContext(rapidjson::SizeType u) {
+      lua_rawseti(L, -2, static_cast<lua_Integer>(u));
+      return true;
+    }
+
+    bool ImplicitObjectInContext() {
+      lua_rawset(L, -3);
+      return true;
+    }
+#else
+    #define LUA_JSON_SUBMIT() context_.submit(L);
+    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__)
+    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME()
+#endif
+
+    LUA_JSON_HANDLE_NULL(Null) {
       if (nullarg >= 0)
         lua_pushvalue(L, nullarg);
       else if ((flags & JSON_LUA_NILL))
         lua_pushnil(L);
       else
         json_null(L);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Bool(bool b) {
+    LUA_JSON_HANDLE(Bool, bool b) {
       lua_pushboolean(L, b);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Int(int i) {
+    LUA_JSON_HANDLE(Int, int i) {
       lua_pushinteger(L, i);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Uint(unsigned u) {
+    LUA_JSON_HANDLE(Uint, unsigned u) {
       if (sizeof(lua_Integer) > sizeof(unsigned int) || u <= static_cast<unsigned>(LUA_MAXINTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(u));
       else
         lua_pushnumber(L, static_cast<lua_Number>(u));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Int64(int64_t i) {
+    LUA_JSON_HANDLE(Int64, int64_t i) {
       if (sizeof(lua_Integer) >= sizeof(int64_t) || (i <= LUA_MAXINTEGER && i >= LUA_MININTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(i));
       else
         lua_pushnumber(L, static_cast<lua_Number>(i));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Uint64(uint64_t u) {
+    LUA_JSON_HANDLE(Uint64, uint64_t u) {
       if (sizeof(lua_Integer) > sizeof(uint64_t) || u <= static_cast<uint64_t>(LUA_MAXINTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(u));
       else
         lua_pushnumber(L, static_cast<lua_Number>(u));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Double(double d) {
+    LUA_JSON_HANDLE(Double, double d) {
       lua_pushnumber(L, static_cast<lua_Number>(d));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool RawNumber(const char *str, rapidjson::SizeType length, bool copy) {
+    LUA_JSON_HANDLE(RawNumber, const char *str, rapidjson::SizeType length, bool copy) {
       LUA_JSON_UNUSED(copy);
 
       lua_getglobal(L, "tonumber");
       lua_pushlstring(L, str, length);
       lua_call(L, 1, 1);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool String(const char *str, rapidjson::SizeType length, bool copy) {
+    LUA_JSON_HANDLE(String, const char *str, rapidjson::SizeType length, bool copy) {
       LUA_JSON_UNUSED(copy);
 
       lua_pushlstring(L, str, length);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
@@ -428,12 +452,12 @@ namespace LuaSAX {
       return true;
     }
 
-    bool EndObject(rapidjson::SizeType memberCount) {
+    LUA_JSON_HANDLE(EndObject, rapidjson::SizeType memberCount) {
       LUA_JSON_UNUSED(memberCount);
 
       context_ = stack_.back();
       stack_.pop_back();
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
@@ -458,13 +482,13 @@ namespace LuaSAX {
 #endif
     }
 
-    bool EndArray(rapidjson::SizeType elementCount) {
+    LUA_JSON_HANDLE(EndArray, rapidjson::SizeType elementCount) {
       lua_assert(elementCount == context_.index_);
       LUA_JSON_UNUSED(elementCount);
 
       context_ = stack_.back();
       stack_.pop_back();
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
   };
