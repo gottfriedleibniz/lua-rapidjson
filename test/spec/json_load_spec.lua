@@ -60,13 +60,19 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail21.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- Comma instead of colon: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail21.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
 
-      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail22.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- Colon instead of comma: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail22.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
 
       r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail23.json')
       assert.are.equal(nil, r)
@@ -116,9 +122,10 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail4.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- ExtraComma: Supported in DKJson
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail4.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
 
       r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail5.json')
       assert.are.equal(nil, r)
@@ -136,9 +143,12 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- ExtraComma: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
     end)
 
     describe('should return valid table', function()

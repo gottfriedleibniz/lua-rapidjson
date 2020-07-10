@@ -4,7 +4,8 @@ project(lua-rapidjson)
 option (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
 option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
 option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
-option (GRIT54_TTYPE "table.type API" OFF)
+option (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" ON)
+option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -69,9 +70,13 @@ if(UNIX)
         add_definitions(-DLUA_RAPIDJSON_EXPLICIT)
     ENDIF()
 
-    if(GRIT54_TTYPE)
-        ADD_DEFINITIONS(-DGRIT_POWER_TTYPE)
-    endif()
+    if (LUA_RAPIDJSON_COMPAT)
+        add_definitions(-DLUA_RAPIDJSON_COMPAT)
+    ENDIF()
+
+    if (LUA_RAPIDJSON_SANITIZE_KEYS)
+        add_definitions(-DLUA_RAPIDJSON_SANITIZE_KEYS)
+    ENDIF()
 
     IF(LUA_RAPIDJSON_BIT32)
        IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -131,6 +136,7 @@ include_directories(${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
 
 set(SOURCES
     src/StringStream.hpp
+    src/reader_dkcompat.hpp
     src/lua_rapidjson.hpp
     src/lua_rapidjsonlib.h
     src/lua_rapidjson.cpp

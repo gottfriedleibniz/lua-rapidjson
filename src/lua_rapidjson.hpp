@@ -19,7 +19,11 @@
 #include <rapidjson/filewritestream.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/rapidjson.h>
-#include <rapidjson/reader.h>
+#if defined(LUA_RAPIDJSON_COMPAT)
+  #include "reader_dkcompat.hpp"
+#else
+  #include <rapidjson/reader.h>
+#endif
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -59,6 +63,14 @@ extern "C" {
 #define LUA_DKJSON_TYPE "unsupported type"
 #define LUA_DKJSON_NUMBER "error encoding number"
 #define LUA_DKJSON_DEPTH_LIMIT "maximum table nesting depth exceeded" /* Replaces _CYCLE */
+#define LUA_DKJSON_KEY_TYPE "type '%s' is not supported as a key by JSON.\n"
+
+/*
+** Threshold for table_is_json_array: If a table has an integer key greater than
+** this value, ensure at least half of the keys within the table have elements
+** to be encoded as an array.
+*/
+#define LUA_DKJSON_TABLE_CUTOFF 11
 
 #define LUA_JSON_UNUSED(x) ((void)(x))
 
@@ -111,7 +123,7 @@ extern "C" {
 #define JSON_DECODER_PRESET     0x2000 /* Preset flags for decoding */
 #define JSON_ENCODER_ARRAY_VECTOR 0x4000 /* gritVectors encoded as arrays, otherwise x=x, y=y, objects*/
 
-#define JSON_DEFAULT (JSON_LUA_NILL | JSON_EMPTY_AS_ARRAY)
+#define JSON_DEFAULT (JSON_LUA_NILL | JSON_EMPTY_AS_ARRAY | JSON_ARRAY_WITH_HOLES)
 #define JSON_DEFAULT_DEPTH 128
 
 /* kParseDefaultFlags */
@@ -167,55 +179,56 @@ namespace LuaSAX {
       return result;
     }
 
+    /*
+    ** encode2() doesn't give special treatment/priority to the __jsontype
+    ** metafield besides:
+    **    local isa, n = isarray (value)
+    **    if n == 0 and valmeta and valmeta.__jsontype == 'object' then
+    **      isa = false
+    **    end
+    */
     static bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length) {
+      int has_type = 0;
       int is_array = 0;
+      int stacktop = 0;
+      int i_idx = JSON_REL_INDEX(idx, 1);
+
+      lua_Integer n;
+      size_t count = 0, max = 0;
+
       LUA_JSON_CHECKSTACK(L, 2);
+      stacktop = lua_gettop(L);
+      has_type = has_json_type(L, idx, &is_array);
 
-      if (has_json_type(L, idx, &is_array)) {
-#if LUA_VERSION_NUM >= 502
-        *array_length = lua_rawlen(L, idx);
-#else
-        *array_length = lua_objlen(L, idx);
-#endif
-        return is_array;
-      }
-      else {
-        lua_Integer n;
-        size_t count = 0, max = 0;
-        int stacktop = lua_gettop(L), i_idx = JSON_REL_INDEX(idx, 1);
-#if defined(GRIT_POWER_TTYPE)
-        switch (lua_tabletype(L, idx)) {
-          case LUA_TTEMPTY: *array_length = 0; return 1;
-          case LUA_TTARRAY:
-            if (!(flags & JSON_ARRAY_WITH_HOLES)) {
-              *array_length = lua_rawlen(L, idx);
-              return 1;
-            }
-            break;
-          default: break;
+      lua_pushnil(L);
+      while (lua_next(L, i_idx)) { /* [key, value] */
+        lua_pop(L, 1); /* [key] */
+        if (lua_json_isinteger(L, -1) /* && within range of size_t */
+            && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)) {
+          count++;
+          max = ((size_t)n) > max ? ((size_t)n) : max;
         }
-#endif
-
-        lua_pushnil(L);
-        while (lua_next(L, i_idx)) { /* [key, value] */
-          lua_pop(L, 1); /* [key] */
-          if (lua_json_isinteger(L, -1) /* && within range of size_t */
-              && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)) {
-            count++;
-            max = ((size_t)n) > max ? ((size_t)n) : max;
-          }
-          else {
-            lua_settop(L, stacktop);
-            return 0;
-          }
+        else {
+          lua_settop(L, stacktop);
+          return 0;
         }
-        *array_length = max;
-        lua_settop(L, stacktop);
-
-        if ((flags & JSON_ARRAY_WITH_HOLES) == JSON_ARRAY_WITH_HOLES)
-          return 1; /* All integer keys, insert nils. */
-        return max == count;
       }
+      *array_length = max;
+      lua_settop(L, stacktop);
+
+      /*
+      ** encode2: an empty Lua table as an object iff its given an object
+      ** __jsontype. (Library addition:) Otherwise, only encode an empty table
+      ** as an object if the JSON_EMPTY_AS_ARRAY is not set.
+      **/
+      if (max == 0 && has_type && !is_array)
+        return 0;
+      else if (max == count)
+        return max > 0 || (flags & JSON_EMPTY_AS_ARRAY);
+      /* don't create an array with too many holes (inserted nils) */
+      else if (flags & JSON_ARRAY_WITH_HOLES)
+        return ((max < LUA_DKJSON_TABLE_CUTOFF) || (count >= (max >> 2)));
+      return 0;
     }
 
     /* Handle gritLua vectors */
@@ -280,7 +293,7 @@ namespace LuaSAX {
 
   /*
   ** Following JSON in which keys are either strings or numeric. Format and
-  ** append all string & numeric keys of the provided table (index) to a key
+  ** append all string & numeric keys of the provided array (index) to a key
   ** sink. Returning 0 on success, an error code otherwise.
   */
   static int populate_key_vector (lua_State *L, int idx, std::vector<Key> &sink) {
@@ -305,8 +318,13 @@ namespace LuaSAX {
         key.key = lua_tolstring(L, -1, &key.len); /* value converted to string */
       }
       else {
-        lua_pop(L, 1);
+#if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
+        luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -1)));
         return -1; /* invalid key_order element */
+#else
+        lua_pop(L, 1);
+        continue;
+#endif
       }
       sink.push_back(key);
       lua_pop(L, 1);
@@ -377,77 +395,97 @@ namespace LuaSAX {
       stack_.reserve(LUA_JSON_STACK_RESERVE);
     }
 
-    bool Null() {
+#if defined(LUA_RAPIDJSON_COMPAT)
+    #define LUA_JSON_SUBMIT() if (!mapValue) { context_.submit(L); }
+    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__, bool mapValue = false)
+    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME(bool mapValue = false)
+
+    bool ImplicitArrayInObjectContext(rapidjson::SizeType u) {
+      lua_rawseti(L, -2, static_cast<lua_Integer>(u));
+      return true;
+    }
+
+    bool ImplicitObjectInContext() {
+      lua_rawset(L, -3);
+      return true;
+    }
+#else
+    #define LUA_JSON_SUBMIT() context_.submit(L);
+    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__)
+    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME()
+#endif
+
+    LUA_JSON_HANDLE_NULL(Null) {
       if (nullarg >= 0)
         lua_pushvalue(L, nullarg);
       else if ((flags & JSON_LUA_NILL))
         lua_pushnil(L);
       else
         json_null(L);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Bool(bool b) {
+    LUA_JSON_HANDLE(Bool, bool b) {
       lua_pushboolean(L, b);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Int(int i) {
+    LUA_JSON_HANDLE(Int, int i) {
       lua_pushinteger(L, i);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Uint(unsigned u) {
+    LUA_JSON_HANDLE(Uint, unsigned u) {
       if (sizeof(lua_Integer) > sizeof(unsigned int) || u <= static_cast<unsigned>(LUA_MAXINTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(u));
       else
         lua_pushnumber(L, static_cast<lua_Number>(u));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Int64(int64_t i) {
+    LUA_JSON_HANDLE(Int64, int64_t i) {
       if (sizeof(lua_Integer) >= sizeof(int64_t) || (i <= LUA_MAXINTEGER && i >= LUA_MININTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(i));
       else
         lua_pushnumber(L, static_cast<lua_Number>(i));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Uint64(uint64_t u) {
+    LUA_JSON_HANDLE(Uint64, uint64_t u) {
       if (sizeof(lua_Integer) > sizeof(uint64_t) || u <= static_cast<uint64_t>(LUA_MAXINTEGER))
         lua_pushinteger(L, static_cast<lua_Integer>(u));
       else
         lua_pushnumber(L, static_cast<lua_Number>(u));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool Double(double d) {
+    LUA_JSON_HANDLE(Double, double d) {
       lua_pushnumber(L, static_cast<lua_Number>(d));
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool RawNumber(const char *str, rapidjson::SizeType length, bool copy) {
+    LUA_JSON_HANDLE(RawNumber, const char *str, rapidjson::SizeType length, bool copy) {
       LUA_JSON_UNUSED(copy);
 
       lua_getglobal(L, "tonumber");
       lua_pushlstring(L, str, length);
       lua_call(L, 1, 1);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
-    bool String(const char *str, rapidjson::SizeType length, bool copy) {
+    LUA_JSON_HANDLE(String, const char *str, rapidjson::SizeType length, bool copy) {
       LUA_JSON_UNUSED(copy);
 
       lua_pushlstring(L, str, length);
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
@@ -478,12 +516,12 @@ namespace LuaSAX {
       return true;
     }
 
-    bool EndObject(rapidjson::SizeType memberCount) {
+    LUA_JSON_HANDLE(EndObject, rapidjson::SizeType memberCount) {
       LUA_JSON_UNUSED(memberCount);
 
       context_ = stack_.back();
       stack_.pop_back();
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
 
@@ -508,13 +546,13 @@ namespace LuaSAX {
 #endif
     }
 
-    bool EndArray(rapidjson::SizeType elementCount) {
+    LUA_JSON_HANDLE(EndArray, rapidjson::SizeType elementCount) {
       lua_assert(elementCount == context_.index_);
       LUA_JSON_UNUSED(elementCount);
 
       context_ = stack_.back();
       stack_.pop_back();
-      context_.submit(L);
+      LUA_JSON_SUBMIT();
       return true;
     }
   };
@@ -563,7 +601,7 @@ namespace LuaSAX {
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -2)));
           return;
         }
 #endif
@@ -681,8 +719,10 @@ namespace LuaSAX {
           writer->String(s, static_cast<rapidjson::SizeType>(len));
           return;
         }
-        case LUA_TTABLE:
-          return encodeTable(L, writer, idx, depth + 1);
+        case LUA_TTABLE: {
+          encodeTable(L, writer, idx, depth + 1);
+          return;
+        }
         case LUA_TFUNCTION:
           if (LuaSAX::is_json_null(L, idx)) {
             writer->Null();
@@ -761,8 +801,7 @@ namespace LuaSAX {
       if (encodeMetafield(L, writer, idx, depth)) {
         /* Continue */
       }
-      else if (table_is_json_array(L, idx, flags, &array_length)
-                       && (array_length > 0 || (flags & JSON_EMPTY_AS_ARRAY))) {
+      else if (table_is_json_array(L, idx, flags, &array_length)) {
         encode_array(L, writer, idx, array_length, depth);
       }
       else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != 0) {
@@ -833,7 +872,7 @@ namespace LuaSAX {
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          luaL_error("invalid object key: %s\n", lua_typename(L, lua_type(L, -2)));
+          luaL_error(L, LUA_DKJSON_KEY_TYPE, lua_typename(L, lua_type(L, -2)));
           return;
         }
 #endif
