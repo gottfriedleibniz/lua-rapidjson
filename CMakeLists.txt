@@ -23,17 +23,17 @@ if(UNIX)
 
     # Compiler options taken from Lua: lua/blob/master/makefile
     add_compile_options(-fPIC
-        -fmax-errors=5
+        #-fmax-errors=5
         -Wall
         -Wextra
         -Wsign-compare
         -Wundef
         -Wwrite-strings
         -Wredundant-decls
-        -Wdisabled-optimization
+        #-Wdisabled-optimization
         -Wdouble-promotion
-        -Wlogical-op
-        -Wno-aggressive-loop-optimizations
+        #-Wlogical-op
+        #-Wno-aggressive-loop-optimizations
         # the next warnings might be useful sometimes, but usually they generate too much noise
         -Werror
         -Wconversion

@@ -194,7 +194,11 @@ namespace LuaSAX {
       int i_idx = JSON_REL_INDEX(idx, 1);
 
       lua_Integer n;
-      size_t count = 0, max = 0;
+      size_t count = 0, max = 0, arraylen = 0;
+#if defined(LUA_RAPIDJSON_COMPAT)
+      size_t strlen = 0;
+      const char* key = nullptr;
+#endif
 
       LUA_JSON_CHECKSTACK(L, 2);
       stacktop = lua_gettop(L);
@@ -202,16 +206,28 @@ namespace LuaSAX {
 
       lua_pushnil(L);
       while (lua_next(L, i_idx)) { /* [key, value] */
-        lua_pop(L, 1); /* [key] */
-        if (lua_json_isinteger(L, -1) /* && within range of size_t */
-            && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)) {
+        /* && within range of size_t */
+        if (lua_json_isinteger(L, -2)
+             && (n = lua_tointeger(L, -2), n >= 1 && ((size_t)n) <= MAX_SIZE)) {
           count++;
           max = ((size_t)n) > max ? ((size_t)n) : max;
         }
+#if defined(LUA_RAPIDJSON_COMPAT)
+        /* Similar to dkjson; support the common { n = select("#", ...), ... } idiom */
+        else if (lua_isstring(L, -2)
+                 && lua_json_isinteger(L, -1)
+                 && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)
+                 && (key = lua_tolstring(L, -2, &strlen), strlen == 1)
+                 && key[0] == 'n') {
+          arraylen = (size_t)n;
+          max = arraylen > max ? arraylen : max;
+        }
+#endif
         else {
           lua_settop(L, stacktop);
           return 0;
         }
+        lua_pop(L, 1); /* [key] */
       }
       *array_length = max;
       lua_settop(L, stacktop);
@@ -227,7 +243,7 @@ namespace LuaSAX {
         return max > 0 || (flags & JSON_EMPTY_AS_ARRAY);
       /* don't create an array with too many holes (inserted nils) */
       else if (flags & JSON_ARRAY_WITH_HOLES)
-        return ((max < LUA_DKJSON_TABLE_CUTOFF) || (count >= (max >> 1)));
+        return ((max < LUA_DKJSON_TABLE_CUTOFF) || max <= arraylen || (count >= (max >> 1)));
       return 0;
     }
 
