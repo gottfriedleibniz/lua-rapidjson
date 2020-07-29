@@ -525,7 +525,9 @@ namespace LuaSAX {
     }
 
     LUA_JSON_HANDLE(EndArray, rapidjson::SizeType elementCount) {
+#if !defined(LUA_RAPIDJSON_COMPAT)
       lua_assert(elementCount == context_.index_);
+#endif
       LUA_JSON_UNUSED(elementCount);
 
       context_ = stack_.back();
