@@ -214,7 +214,7 @@ namespace LuaSAX {
         }
 #if defined(LUA_RAPIDJSON_COMPAT)
         /* Similar to dkjson; support the common { n = select("#", ...), ... } idiom */
-        else if (lua_isstring(L, -2)
+        else if (lua_type(L, -2) == LUA_TSTRING
                  && lua_json_isinteger(L, -1)
                  && ((n = lua_tointeger(L, -1)) >= 1 && ((size_t)n) <= MAX_SIZE)
                  && (key = lua_tolstring(L, -2, &strlen), strlen == 1)
@@ -647,7 +647,7 @@ namespace LuaSAX {
         if (lua_isfunction(L, -1)) {
           lua_pushstring(L, reason);  // [function, reason]
           lua_pushvalue(L, JSON_REL_INDEX(idx, 2));  // [function, reason, value]
-          lua_call(L, 2, 2);  // [ r_value, r_reason]
+          lua_call(L, 2, 2);  // [r_value, r_reason]
           if (lua_isnil(L, -2)) {
             *output = luaL_optstring(L, -1, NULL);
           }
@@ -655,7 +655,7 @@ namespace LuaSAX {
             encodeValue(L, writer, -2, depth + 1);
             result = true;
           }
-          lua_pop(L, 2);  // [function]
+          lua_pop(L, 2);  // []
         }
         else {
           lua_pop(L, 1);  // []
