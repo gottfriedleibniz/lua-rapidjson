@@ -144,10 +144,11 @@ describe('rapidjson.load()', function()
       assert.are.equal('string', type(m))
 
       -- ExtraComma: Supported in DKJson
+      -- Note: default trailing comma support is enabled by default.
       if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
+        --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
+        --assert.are.equal(nil, r)
+        --assert.are.equal('string', type(m))
       end
     end)
 

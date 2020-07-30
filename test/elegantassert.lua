@@ -1,6 +1,7 @@
 local lua_assert = assert  -- elegant!
 local deepcompare = nil
 local elegant = nil
+local table_unpack = table.unpack or unpack
 
 elegant = {
     jsonnil = nil,
@@ -53,7 +54,7 @@ elegant = {
             local f = elegant[key]
             return function(...)
                 local args = { ... }
-                local result = f(table.unpack(args))
+                local result = f(table_unpack(args))
                 return not result
             end
         end,

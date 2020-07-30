@@ -142,7 +142,7 @@ extern "C" {
 static int lua_json_isinteger (lua_State *L, int idx) {
   if (LUA_TNUMBER == lua_type(L, idx)) {
     lua_Number n = lua_tonumber(L, idx);
-    return (!isinf(n) && (lua_Integer)(n) == (n));
+    return (!isinf(n) && ((lua_Number)((lua_Integer)(n))) == (n));
   }
   return 0;
 }
@@ -284,7 +284,13 @@ namespace LuaSAX {
 
     for (i = 1; i <= length; ++i) {
       LuaSAX::Key key;
-      lua_rawgeti(L, -1, (lua_Integer)i);
+#if LUA_VERSION_NUM >= 503
+      lua_rawgeti(L, idx, (lua_Integer)i);
+#else
+      lua_pushinteger(L, (lua_Integer)i);
+      lua_rawget(L, JSON_REL_INDEX(idx, 1));
+#endif
+
       if (lua_type(L, -1) == LUA_TSTRING) {
         key.is_number = false;
         key.number = 0;
@@ -349,8 +355,14 @@ namespace LuaSAX {
       }
 
       static void arrayFn(lua_State *L, Ctx *ctx) {
-        LUA_JSON_UNUSED(ctx);
+#if LUA_VERSION_NUM >= 503
         lua_rawseti(L, -2, ++ctx->index_);
+#else
+        lua_pushinteger(L, ++ctx->index_); /* [..., value, key] */
+        lua_pushvalue(L, -2); /* [..., value, key, value] */
+        lua_rawset(L, -4); /* [..., value] */
+        lua_pop(L, 1); /* [...] */
+#endif
       }
 
       static void topFn(lua_State *L, Ctx *ctx) {
@@ -799,7 +811,12 @@ namespace LuaSAX {
 	  void encode_array(lua_State* L, Writer* writer, int idx, size_t array_length, int depth) {
       writer->StartArray();
       for (size_t i = 1; i <= array_length; ++i) {
+#if LUA_VERSION_NUM >= 503
         lua_rawgeti(L, idx, (lua_Integer)i);
+#else
+        lua_pushinteger(L, (lua_Integer)i);
+        lua_rawget(L, JSON_REL_INDEX(idx, 1));
+#endif
         encodeValue(L, writer, -1, depth);
         lua_pop(L, 1);
       }
