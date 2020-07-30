@@ -707,8 +707,13 @@ namespace LuaSAX {
     template<typename Writer>
     bool encodeMetafield(lua_State *L, Writer *writer, int idx, int depth) {
       LUA_JSON_UNUSED(depth);
-      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0)
+#if LUA_VERSION_NUM >= 503
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == LUA_TNIL) {
+#else
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0) {
+#endif
         return false;
+      }
 
       if (lua_type(L, -1) == LUA_TFUNCTION) {
         lua_pushvalue(L, JSON_REL_INDEX(idx, 1));  /* [metafield, self] */
@@ -754,7 +759,11 @@ namespace LuaSAX {
       else if (table_is_json_array(L, idx, flags, &array_length)) {
         encode_array(L, writer, idx, array_length, depth);
       }
+#if LUA_VERSION_NUM >= 503
+      else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != LUA_TNIL) {
+#else
       else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != 0) {
+#endif
         /* __jsonorder returns a function (i.e., order dependent on state) */
         if (lua_type(L, -1) == LUA_TFUNCTION) {
           lua_pushvalue(L, JSON_REL_INDEX(idx, 1));  /* self */
