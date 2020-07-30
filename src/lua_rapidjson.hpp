@@ -151,7 +151,7 @@ extern "C" {
 static int lua_json_isinteger (lua_State *L, int idx) {
   if (LUA_TNUMBER == lua_type(L, idx)) {
     lua_Number n = lua_tonumber(L, idx);
-    return (!isinf(n) && (lua_Integer)(n) == (n));
+    return (!isinf(n) && ((lua_Number)((lua_Integer)(n))) == (n));
   }
   return 0;
 }
@@ -322,7 +322,13 @@ namespace LuaSAX {
 
     for (i = 1; i <= length; ++i) {
       LuaSAX::Key key;
-      lua_rawgeti(L, -1, (lua_Integer)i);
+#if LUA_VERSION_NUM >= 503
+      lua_rawgeti(L, idx, (lua_Integer)i);
+#else
+      lua_pushinteger(L, (lua_Integer)i);
+      lua_rawget(L, JSON_REL_INDEX(idx, 1));
+#endif
+
       if (lua_type(L, -1) == LUA_TSTRING) {
         key.is_number = false;
         key.number = 0;
@@ -387,8 +393,14 @@ namespace LuaSAX {
       }
 
       static void arrayFn(lua_State *L, Ctx *ctx) {
-        LUA_JSON_UNUSED(ctx);
+#if LUA_VERSION_NUM >= 503
         lua_rawseti(L, -2, ++ctx->index_);
+#else
+        lua_pushinteger(L, ++ctx->index_); /* [..., value, key] */
+        lua_pushvalue(L, -2); /* [..., value, key, value] */
+        lua_rawset(L, -4); /* [..., value] */
+        lua_pop(L, 1); /* [...] */
+#endif
       }
 
       static void topFn(lua_State *L, Ctx *ctx) {
@@ -563,7 +575,9 @@ namespace LuaSAX {
     }
 
     LUA_JSON_HANDLE(EndArray, rapidjson::SizeType elementCount) {
+#if !defined(LUA_RAPIDJSON_COMPAT)
       lua_assert(elementCount == context_.index_);
+#endif
       LUA_JSON_UNUSED(elementCount);
 
       context_ = stack_.back();
@@ -773,8 +787,13 @@ namespace LuaSAX {
     template<typename Writer>
     bool encodeMetafield(lua_State *L, Writer *writer, int idx, int depth) {
       LUA_JSON_UNUSED(depth);
-      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0)
+#if LUA_VERSION_NUM >= 503
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == LUA_TNIL) {
+#else
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0) {
+#endif
         return false;
+      }
 
       if (lua_type(L, -1) == LUA_TFUNCTION) {
         lua_pushvalue(L, JSON_REL_INDEX(idx, 1));  /* [metafield, self] */
@@ -820,7 +839,11 @@ namespace LuaSAX {
       else if (table_is_json_array(L, idx, flags, &array_length)) {
         encode_array(L, writer, idx, array_length, depth);
       }
+#if LUA_VERSION_NUM >= 503
+      else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != LUA_TNIL) {
+#else
       else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != 0) {
+#endif
         /* __jsonorder returns a function (i.e., order dependent on state) */
         if (lua_type(L, -1) == LUA_TFUNCTION) {
           lua_pushvalue(L, JSON_REL_INDEX(idx, 1));  /* self */
@@ -856,7 +879,12 @@ namespace LuaSAX {
 	  void encode_array(lua_State* L, Writer* writer, int idx, size_t array_length, int depth) {
       writer->StartArray();
       for (size_t i = 1; i <= array_length; ++i) {
+#if LUA_VERSION_NUM >= 503
         lua_rawgeti(L, idx, (lua_Integer)i);
+#else
+        lua_pushinteger(L, (lua_Integer)i);
+        lua_rawget(L, JSON_REL_INDEX(idx, 1));
+#endif
         encodeValue(L, writer, -1, depth);
         lua_pop(L, 1);
       }
