@@ -623,7 +623,7 @@ namespace LuaSAX {
 
           k.is_number = true;
           k.number = lua_tonumber(L, -1);
-          k.key = lua_tolstring(L, -1, &k.len);
+          k.key = lua_tolstring(L, -1, &k.len); /* edge-case: inf/NaN -> "inf"/"NaN" */
           if (std::find_if(keyorder.begin(), keyorder.end(), k) == keyorder.end())
             sink.push_back(k);
 
@@ -701,14 +701,19 @@ namespace LuaSAX {
               writer->Int64((int64_t)lua_tointeger(L, idx));
 #endif
           }
-          else if (!writer->Double((double)lua_tonumber(L, idx))) {
-            const char *output = NULL;
-            if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
-              if (output)
-                luaL_error(L, "%s", output);
-              else
-                luaL_error(L, "error while encoding '%s'", lua_typename(L, LUA_TNUMBER));
-              return;
+          else {
+            const double d = (double)lua_tonumber(L, idx);
+            if (rapidjson::internal::Double(d).IsNanOrInf())
+              writer->Null();
+            else if (!writer->Double(d)) {
+              const char *output = NULL;
+              if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
+                if (output)
+                  luaL_error(L, "%s", output);
+                else
+                  luaL_error(L, "error while encoding '%s'", lua_typename(L, LUA_TNUMBER));
+                return;
+              }
             }
           }
           break;
@@ -908,7 +913,7 @@ namespace LuaSAX {
         }
         else if (lua_type(L, -2) == LUA_TNUMBER) {
           lua_pushvalue(L, -2); /* [key, value, key] */
-          key = lua_tolstring(L, -1, &len);
+          key = lua_tolstring(L, -1, &len); /* edge-case: inf/NaN -> "inf"/"NaN" */
           writer->Key(key, static_cast<rapidjson::SizeType>(len));
           lua_pop(L, 1); /* [key, value] */
 

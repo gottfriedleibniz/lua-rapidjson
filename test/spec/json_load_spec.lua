@@ -16,9 +16,12 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail10.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- kParseStopWhenDoneFlag: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
 
       r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail11.json')
       assert.are.equal(nil, r)
@@ -135,14 +138,19 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail7.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
+      -- kParseStopWhenDoneFlag: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail7.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
 
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail8.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
+      -- kParseStopWhenDoneFlag: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail8.json')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+      end
       -- ExtraComma: Supported in DKJson
       -- Note: default trailing comma support is enabled by default.
       if not rapidjson._COMPAT then
