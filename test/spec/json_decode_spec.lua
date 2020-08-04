@@ -26,11 +26,14 @@ describe('rapidjson.decode()', function()
 
 
 
-      r, _, m = rapidjson.decode('{}10')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-      idx = string.find(m, "The document root must not be followed by other values.", 1, true)
-      assert.are_not.equal(nil, idx)
+      -- kParseStopWhenDoneFlag: Supported in DKJson
+      if not rapidjson._COMPAT then
+        r, _, m = rapidjson.decode('{}10')
+        assert.are.equal(nil, r)
+        assert.are.equal('string', type(m))
+        idx = string.find(m, "The document root must not be followed by other values.", 1, true)
+        assert.are_not.equal(nil, idx)
+      end
 
       r, _, m = rapidjson.decode('{"a":b}')
       assert.are.equal(nil, r)

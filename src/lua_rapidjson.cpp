@@ -380,11 +380,17 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
           | rapidjson::ParseFlag::kParseCommentsFlag
           | rapidjson::ParseFlag::kParseTrailingCommasFlag
           | rapidjson::ParseFlag::kParseNanAndInfFlag
+#if defined(LUA_RAPIDJSON_COMPAT)
+          | rapidjson::ParseFlag::kParseStopWhenDoneFlag
+#endif
           | rapidjson::ParseFlag::kParseEscapedApostropheFlag>(s, handler);
         break;
       case JSON_DECODE_DEFAULT:
       default:
         r = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags
+#if defined(LUA_RAPIDJSON_COMPAT)
+          | rapidjson::ParseFlag::kParseStopWhenDoneFlag
+#endif
           | rapidjson::ParseFlag::kParseTrailingCommasFlag>(s, handler);
         break;
     }
@@ -414,7 +420,12 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #endif
   }
 
+#if defined(LUA_RAPIDJSON_COMPAT)
+  lua_pushinteger(L, 1 + ((lua_Integer)s.Tell())); /* Safe cast */
+  return 2;
+#else
   return 1;
+#endif
 }
 
 LUALIB_API int rapidjson_setoption (lua_State *L) {
