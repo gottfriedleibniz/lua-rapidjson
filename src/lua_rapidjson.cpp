@@ -192,7 +192,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   int level = 0, indent = 0, state_idx = -1;
   int flags = JSON_DEFAULT, depth = JSON_DEFAULT_DEPTH;
   int parsemode = JSON_DECODE_DEFAULT;
-  int decimals = rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
+  int decimals = LUA_NUMBER_FMT_LEN; // rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
   std::vector<LuaSAX::Key> order;
 
   /* Parse default options */
@@ -231,7 +231,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
             return luaL_error(L, "invalid indentation level");
           break;
         case JSON_ENCODER_DECIMALS:
-          if ((decimals = (int)lua_tointeger(L, -1)) < 0)
+          if ((decimals = (int)lua_tointeger(L, -1)) <= 0)
             return luaL_error(L, "invalid decimal count");
           break;
         case JSON_ENCODER_INDENT:

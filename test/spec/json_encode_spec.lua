@@ -98,6 +98,7 @@ describe('rapidjson.encode()', function()
       '[1000,-1000,23.4,-23.4,1990,-10000000,-0.001,10000000,1990,1990,-0.00199,-1990,100000000000000000000.0]',
       rapidjson.encode({1000, -1000, 23.4, -23.4, 1.99e3, -100E5, -100e-5, 100e5, 1.99E3, 1.99E3, -1.99e-3, -1.99e3, 1E20}))
 
+    -- Will fail with: LUA_RAPIDJSON_LUA_FLOAT, e76 vs. e+76
     assert.are.equal(
       '[2.3456789012e76]',
       rapidjson.encode({2.3456789012e76})

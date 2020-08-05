@@ -93,6 +93,67 @@ extern "C" {
 #endif
 
 /*
+** rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces
+** replacement, based upon the default string formats for Lua.
+*/
+#if LUA_VERSION_NUM >= 503
+  #if LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT
+    #define LUA_NUMBER_FMT_LEN 7
+  #elif LUA_FLOAT_TYPE == LUA_FLOAT_LONGDOUBLE  /* }{ long double */
+    #define LUA_NUMBER_FMT_LEN 19
+  #elif LUA_FLOAT_TYPE == LUA_FLOAT_DOUBLE  /* }{ double */
+    #define LUA_NUMBER_FMT_LEN 14
+  #else
+    #error "numeric float type not defined"
+  #endif
+#else
+  #define LUA_NUMBER_FMT_LEN 14
+#endif
+
+#if defined(LUA_RAPIDJSON_LUA_FLOAT)
+/*
+** Source lobject.c
+**
+** Maximum length of the conversion of a number to a string. Must be
+** enough to accommodate both LUA_INTEGER_FMT and LUA_NUMBER_FMT.
+** (For a long long int, this is 19 digits plus a sign and a final '\0',
+** adding to 21. For a long double, it can go to a sign, 33 digits,
+** the dot, an exponent letter, an exponent sign, 5 exponent digits,
+** and a final '\0', adding to 43.)
+*/
+#define MAXNUMBER2STR 44
+
+/*
+** Convert a number object to a string, adding it to a buffer
+**
+** Based upon: lobject.tostringbuff
+*/
+template<typename Writer>
+static inline bool tostringbuff(lua_State *L, Writer *writer, double value) {
+  char buff[MAXNUMBER2STR];
+  #if LUA_VERSION_NUM >= 503
+  int len = lua_number2str(buff, MAXNUMBER2STR, value);
+  #else
+  int len = lua_number2str(buff, value);
+  #endif
+  if (buff[strspn(buff, "-0123456789")] == '\0') {  /* looks like an int? */
+    buff[len++] = '.';  /* Forced locale */
+    buff[len++] = '0';  /* adds '.0' to result */
+  }
+  else {
+    /* Fix Locale */
+    char *begin = buff, *end = buff + len;
+    for (; begin != end; ++begin) {
+      if (*begin == ',')
+        *begin = '.';
+    }
+  }
+  LUA_JSON_UNUSED(L);
+  return writer->RawValue(buff, static_cast<size_t>(len), rapidjson::kNumberType);
+}
+#endif
+
+/*
 ** {==================================================================
 ** LuaSAX
 ** ===================================================================
@@ -640,6 +701,16 @@ namespace LuaSAX {
       return result;
     }
 
+#if defined(LUA_RAPIDJSON_ROUND_FLOAT)
+    #define _EXP2(a, b) a ## b
+    #define EXP(digits) _EXP2(1 ## E,digits)
+    static inline double luaRoundDecimal(double d) {
+      if ((std::numeric_limits<double>::max() / EXP(LUA_NUMBER_FMT_LEN)) <= d)
+        return d;
+      return std::round(d * EXP(LUA_NUMBER_FMT_LEN)) / EXP(LUA_NUMBER_FMT_LEN);
+    }
+#endif
+
     template<typename Writer>
     void encodeValue(lua_State *L, Writer *writer, int idx, int depth = 0) {
       switch (lua_type(L, idx)) {
@@ -667,7 +738,13 @@ namespace LuaSAX {
             const double d = (double)lua_tonumber(L, idx);
             if (rapidjson::internal::Double(d).IsNanOrInf())
               writer->Null();
+#if defined(LUA_RAPIDJSON_LUA_FLOAT)
+            else if (!tostringbuff(L, writer, d)) {
+#elif defined(LUA_RAPIDJSON_ROUND_FLOAT)
+            else if (!writer->Double(luaRoundDecimal(d))) {
+#else
             else if (!writer->Double(d)) {
+#endif
               const char *output = NULL;
               if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
                 if (output)
