@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 extern "C" {
   #include <lua.h>
   #include <lualib.h>
@@ -99,6 +100,79 @@ public:
     static void Free(void *ptr) {
       if (l_alloc != nullptr)
         l_alloc(l_ud, ptr, 0, 0);
+    }
+  };
+
+  /// <summary>
+  /// lua_checkstack returned false.
+  /// </summary>
+  class LuaStackException : public std::exception {
+public:
+    LuaStackException() { }
+    const char *what() const throw() {
+      return "Lua Stack Overflow";
+    }
+  };
+
+  /// <summary>
+  /// A JSON encoding/decoding error.
+  ///
+  /// TODO: Consider placing the exception message on top of the Lua stack,
+  /// ensuring that fields (i.e., strings) in the exception do not leak.
+  /// </summary>
+  class LuaException : public std::exception {
+private:
+    std::string _msg;
+    LuaException &operator=(const LuaException &other);  // prevent
+
+public:
+    LuaException(const char* s) : _msg(s) { }
+    LuaException(const std::string& s) : _msg(s) { }
+    LuaException(const LuaException &other) : _msg(other._msg) { }
+    ~LuaException() { }
+
+    const char *what() const throw() {
+      return _msg.c_str();
+    }
+  };
+
+  /// <summary>
+  /// lua_types exception, e.g., Expected vs. Actual; or Invalid Type.
+  /// </summary>
+  class LuaTypeException : public std::exception {
+private:
+    int _luatype;
+    int _errorcode;
+
+public:
+    static const int UnsupportedType = 0x0;
+    static const int UnsupportedKeyOrder = 0x1;
+
+    LuaTypeException(int type, int code)
+      : _luatype(type), _errorcode(code) {
+    }
+
+    LuaTypeException(const LuaTypeException &other)
+      : _luatype(other._luatype), _errorcode(other._errorcode) {
+    }
+
+    int pushError(lua_State *L) {
+      switch (_errorcode) {
+        case UnsupportedType:
+          lua_pushfstring(L, "type '%s' is not supported by JSON\n", lua_typename(L, _luatype));
+          break;
+        case UnsupportedKeyOrder:
+          lua_pushfstring(L, "type '%s' is not supported as a keyorder by JSON\n", lua_typename(L, _luatype));
+          break;
+        default:
+          lua_pushstring(L, "LuaTypeException");
+          break;
+      }
+      return 1;
+    }
+
+    const char *what() const throw() {
+      return "LuaTypeException";
     }
   };
 
