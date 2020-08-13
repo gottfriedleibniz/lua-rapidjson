@@ -15,8 +15,8 @@
 #include <rapidjson/encodedstream.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/error/error.h>
-#include <rapidjson/filereadstream.h>
-#include <rapidjson/filewritestream.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/rapidjson.h>
 #if defined(LUA_RAPIDJSON_COMPAT)
@@ -24,8 +24,6 @@
 #else
   #include <rapidjson/reader.h>
 #endif
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 
 extern "C" {
   #include <lua.h>

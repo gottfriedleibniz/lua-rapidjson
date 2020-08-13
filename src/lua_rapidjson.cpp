@@ -256,6 +256,9 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   }
 
   LuaSAX::Writer encode(flags, depth, state_idx, order);
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+  rapidjson::LuaAllocator singleton(L); /* Update singleton */
+#endif
   rapidjson::StringBuffer s;
   try {
     if (flags & JSON_PRETTY_PRINT) {
@@ -275,13 +278,24 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
       switch (parsemode) {
         case JSON_DECODE_EXTENDED: {
           rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-            rapidjson::CrtAllocator, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+            rapidjson::LuaAllocator,
+#else
+            rapidjson::CrtAllocator,
+#endif
+            rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
           dowriting(writer);
           break;
         }
         case JSON_DECODE_DEFAULT:
         default: {
-          rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
+          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+            rapidjson::LuaAllocator
+#else
+            rapidjson::CrtAllocator
+#endif
+            > writer(s);
           dowriting(writer);
           break;
         }
@@ -296,13 +310,24 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
       switch (parsemode) {
         case JSON_DECODE_EXTENDED: {
           rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-            rapidjson::CrtAllocator, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+            rapidjson::LuaAllocator,
+#else
+            rapidjson::CrtAllocator,
+#endif
+            rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
           dowriting(writer);
           break;
         }
         case JSON_DECODE_DEFAULT:
         default: {
-          rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+            rapidjson::LuaAllocator
+#else
+            rapidjson::CrtAllocator
+#endif
+            > writer(s);
           dowriting(writer);
           break;
         }

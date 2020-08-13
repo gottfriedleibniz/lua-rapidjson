@@ -1,4 +1,9 @@
 #pragma once
+extern "C" {
+  #include <lua.h>
+  #include <lualib.h>
+  #include <lauxlib.h>
+}
 
 /*
 ** StringStream
@@ -40,4 +45,64 @@ namespace rapidjson {
   struct StreamTraits<extend::GenericStringStream<Encoding>> {
     enum { copyOptimization = 1 };
   };
+
+  /// <summary>
+  /// Allocators.h requites "Free" to be a static function and gives no
+  /// reference to the allocator object maintained by the writer. Thus, to
+  /// safely piggyback of the Lua allocator, the allocator itself must be a
+  /// static.
+  ///
+  /// Thus, unusable for any multi-threaded Lua environment.
+  /// </summary>
+  class LuaAllocator {
+private:
+    static lua_State *L;
+    static void *l_ud; /* Cache allocator state */
+    static lua_Alloc l_alloc;
+    bool _singleton = false;
+
+public:
+    static const bool kNeedFree = true;
+
+    LuaAllocator() = default;
+
+    /// <summary>
+    /// Update the singleton fields with the allocator fields of the given Lua
+    /// state.
+    /// </summary>
+    LuaAllocator(lua_State *_L)
+      : _singleton(true) {
+      L = _L;
+      l_alloc = lua_getallocf(L, &l_ud);
+    }
+
+    ~LuaAllocator() {
+      if (_singleton) {
+        l_ud = nullptr;
+        l_alloc = nullptr;
+      }
+    }
+
+    void *Malloc(size_t size) {
+      if (l_alloc != nullptr && size)  //  behavior of malloc(0) is implementation defined.
+        return l_alloc(l_ud, NULL, 0, size);
+      return NULL;  // standardize to returning NULL.
+    }
+
+    void *Realloc(void *originalPtr, size_t originalSize, size_t newSize) {
+      if (l_alloc != nullptr)
+        return l_alloc(l_ud, originalPtr, originalSize, newSize);
+      return NULL;
+    }
+
+    /* When nsize is zero, the allocator must behave like free and then return NULL. */
+    static void Free(void *ptr) {
+      if (l_alloc != nullptr)
+        l_alloc(l_ud, ptr, 0, 0);
+    }
+  };
+
+  lua_State *LuaAllocator::L = nullptr;
+  lua_Alloc LuaAllocator::l_alloc = nullptr;
+  void *LuaAllocator::l_ud = nullptr;
 }

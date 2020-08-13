@@ -8,6 +8,7 @@ option (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" OFF
 option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
 option (LUA_RAPIDJSON_LUA_FLOAT "Use lua_number2str instead of internal internal::dtoa/Grisu2" OFF)
 option (LUA_RAPIDJSON_ROUND_FLOAT "Round decimals prior to using internal internal::dtoa/Grisu2" OFF)
+option (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -84,6 +85,10 @@ if(UNIX)
         add_definitions(-DLUA_RAPIDJSON_LUA_FLOAT)
     elseif(LUA_RAPIDJSON_ROUND_FLOAT)
         add_definitions(-DLUA_RAPIDJSON_ROUND_FLOAT)
+    endif()
+
+    if (LUA_RAPIDJSON_ALLOCATOR)
+        add_definitions(-DLUA_RAPIDJSON_ALLOCATOR)
     endif()
 
     if(LUA_RAPIDJSON_BIT32)
