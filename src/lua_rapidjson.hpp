@@ -27,6 +27,7 @@ extern "C" {
 #define LUA_RAPIDJSON_REG "lua_rapidjson"
 #define LUA_RAPIDJSON_REG_ARRAY "lua_rapidjson_array"
 #define LUA_RAPIDJSON_REG_OBJECT "lua_rapidjson_object"
+#define LUA_RAPIDJSON_REG_NULL "lua_rapidjson_nullref"
 
 /* Metamethods */
 #define LUA_RAPIDJSON_META_TOJSON "__tojson"
@@ -104,6 +105,13 @@ static int lua_json_isinteger (lua_State *L, int idx) {
   #define LUA_JSON_CHECKSTACK(L, sz) ((void)0)
 #else
   #define LUA_JSON_CHECKSTACK(L, sz) luaL_checkstack((L), (sz), "too many (nested) values in encoded json")
+#endif
+
+/* Macro for geti/seti. Parameters changed from int to lua_Integer in 53 */
+#if LUA_VERSION_NUM >= 503
+  #define lua_json_ti(v) v
+#else
+  #define lua_json_ti(v) (int)(v)
 #endif
 
 /* }================================================================== */

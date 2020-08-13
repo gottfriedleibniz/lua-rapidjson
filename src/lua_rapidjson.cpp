@@ -111,10 +111,9 @@ static int luaL_optcheckoption (lua_State *L, int arg, const char *def, const ch
 ** API Functions
 ** ===================================================================
 */
-static int nullref = LUA_NOREF;
 
 LUA_API int json_null (lua_State *L) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, nullref);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lua_json_ti(getregi(L, LUA_RAPIDJSON_REG_NULL, LUA_REFNIL)));
   return 1;
 }
 
@@ -708,7 +707,7 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
 
   /* Create json.null reference */
   lua_getfield(L, -1, "null");
-  nullref = luaL_ref(L, LUA_REGISTRYINDEX);
+  setregi(L, LUA_RAPIDJSON_REG_NULL, luaL_ref(L, LUA_REGISTRYINDEX));
 
   /* Register name globally for 5.1 */
 #if LUA_VERSION_NUM == 501
