@@ -135,7 +135,7 @@ static int lua_json_isinteger (lua_State *L, int idx) {
 ** references.
 */
 #if !defined(JSON_DEFAULT_DEPTH)
-  #define JSON_DEFAULT_DEPTH 128
+  #define JSON_DEFAULT_DEPTH 32
 #endif
 
 /* Default context-stack preallocation amount. */
