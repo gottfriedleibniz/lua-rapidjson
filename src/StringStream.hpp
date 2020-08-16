@@ -156,7 +156,7 @@ public:
       : _luatype(other._luatype), _errorcode(other._errorcode) {
     }
 
-    int pushError(lua_State *L) {
+    int pushError(lua_State *L) const {
       switch (_errorcode) {
         case UnsupportedType:
           lua_pushfstring(L, "type '%s' is not supported by JSON\n", lua_typename(L, _luatype));

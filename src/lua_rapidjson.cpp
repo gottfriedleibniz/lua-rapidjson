@@ -454,7 +454,11 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     lua_pushlstring(L, s.GetString(), s.GetSize());
     return 1;
   }
-  catch (const std::exception& e) {
+  catch (const rapidjson::LuaTypeException &e) {
+    lua_settop(L, top);
+    e.pushError(L);
+  }
+  catch (const std::exception &e) {
     lua_settop(L, top);
     lua_pushstring(L, e.what());
   }
@@ -560,7 +564,11 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #endif
     }
   }
-  catch (const std::exception& e) {
+  catch (const rapidjson::LuaTypeException &e) {
+    lua_settop(L, top);
+    e.pushError(L);
+  }
+  catch (const std::exception &e) {
     lua_settop(L, top);
 #if defined(LUA_RAPIDJSON_EXPLICIT)
     lua_pushstring(L, e.what());
