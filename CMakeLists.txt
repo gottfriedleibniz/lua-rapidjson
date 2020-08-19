@@ -9,6 +9,7 @@ option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on enco
 option (LUA_RAPIDJSON_LUA_FLOAT "Use lua_number2str instead of internal internal::dtoa/Grisu2" OFF)
 option (LUA_RAPIDJSON_ROUND_FLOAT "Round decimals prior to using internal internal::dtoa/Grisu2" OFF)
 option (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
+option (LUA_RAPIDJSON_STATIC_NIL "Store null reference in a static variable (no longer reentrant)" OFF)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -90,6 +91,10 @@ if(UNIX)
     if (LUA_RAPIDJSON_ALLOCATOR)
         add_definitions(-DLUA_RAPIDJSON_ALLOCATOR)
     endif()
+
+    if (LUA_RAPIDJSON_STATIC_NIL)
+        add_definitions(-DLUA_RAPIDJSON_STATIC_NIL)
+    endif()    
 
     if(LUA_RAPIDJSON_BIT32)
        if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
