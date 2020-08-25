@@ -136,7 +136,9 @@ ExternalProject_Add(rapidjson
     GIT_REPOSITORY "https://github.com/Tencent/rapidjson.git"
     GIT_TAG "master"
     GIT_SHALLOW 1
-    CMAKE_ARGS += -DRAPIDJSON_BUILD_TESTS=OFF
+    CMAKE_ARGS += -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                  -DRAPIDJSON_BUILD_TESTS=OFF
                   -DRAPIDJSON_BUILD_DOC=OFF
                   -DRAPIDJSON_BUILD_EXAMPLES=OFF
     CONFIGURE_COMMAND ""
