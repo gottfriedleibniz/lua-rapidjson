@@ -51,6 +51,16 @@ extern "C" {
 #define LUA_DKJSON_NUMBER "error encoding number"
 #define LUA_DKJSON_DEPTH_LIMIT "maximum table nesting depth exceeded" /* Replaces _CYCLE */
 
+#if !defined(LUA_RAPIDJSON_INLINE)
+  #if defined(__GNUC__) || defined(__CLANG__)
+    #define LUA_RAPIDJSON_INLINE inline __attribute__((__always_inline__))
+  #elif defined(LUA_USE_WINDOWS)
+    #define LUA_RAPIDJSON_INLINE __forceinline
+  #else
+    #define LUA_RAPIDJSON_INLINE inline
+  #endif
+#endif
+
 /*
 ** {==================================================================
 ** Lua Compatibility
@@ -90,7 +100,7 @@ extern "C" {
 #if LUA_VERSION_NUM >= 503
   #define lua_json_isinteger(L, idx) lua_isinteger((L), (idx))
 #else
-static int lua_json_isinteger (lua_State *L, int idx) {
+static LUA_RAPIDJSON_INLINE int lua_json_isinteger (lua_State *L, int idx) {
   if (LUA_TNUMBER == lua_type(L, idx)) {
     lua_Number n = lua_tonumber(L, idx);
     return (!isinf(n) && ((lua_Number)((lua_Integer)(n))) == (n));
@@ -426,8 +436,8 @@ public:
 
 #if defined(LUA_RAPIDJSON_COMPAT)
     #define LUA_JSON_SUBMIT() if (!mapValue) { context_.submit(L); }
-    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__, bool mapValue = false)
-    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME(bool mapValue = false)
+    #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__, bool mapValue = false)
+    #define LUA_JSON_HANDLE_NULL(NAME) bool NAME(bool mapValue = false)
 
     bool ImplicitArrayInObjectContext(rapidjson::SizeType u) {
 #if LUA_VERSION_NUM >= 503
@@ -448,8 +458,8 @@ public:
     }
 #else
     #define LUA_JSON_SUBMIT() context_.submit(L);
-    #define LUA_JSON_HANDLE(NAME, ...) inline bool NAME(__VA_ARGS__)
-    #define LUA_JSON_HANDLE_NULL(NAME) inline bool NAME()
+    #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__)
+    #define LUA_JSON_HANDLE_NULL(NAME) bool NAME()
 #endif
 
     LUA_JSON_HANDLE_NULL(Null) {
@@ -696,7 +706,7 @@ public:
 #if defined(LUA_RAPIDJSON_ROUND_FLOAT)
     #define _EXP2(a, b) a##b
     #define EXP(digits) _EXP2(1##E, digits)
-    static inline double luaRoundDecimal(double d) {
+    static LUA_RAPIDJSON_INLINE double luaRoundDecimal(double d) {
       if ((std::numeric_limits<double>::max() / EXP(LUA_NUMBER_FMT_LEN)) <= d)
         return d;
       return std::round(d * EXP(LUA_NUMBER_FMT_LEN)) / EXP(LUA_NUMBER_FMT_LEN);

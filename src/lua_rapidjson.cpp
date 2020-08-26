@@ -44,7 +44,7 @@ static int luaL_getsubtable (lua_State *L, int idx, const char *fname) {
 }
 #endif
 
-static lua_Integer geti (lua_State *L, int idx, const char *key, lua_Integer opt) {
+static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, const char *key, lua_Integer opt) {
   lua_Integer result;
 
   lua_getfield(L, idx, key);
@@ -54,7 +54,7 @@ static lua_Integer geti (lua_State *L, int idx, const char *key, lua_Integer opt
 }
 
 /* Fetch a lua_Int from the registry table */
-static lua_Integer getregi (lua_State *L, const char *key, lua_Integer opt) {
+static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, const char *key, lua_Integer opt) {
   lua_Integer result;
 
   luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
@@ -64,7 +64,7 @@ static lua_Integer getregi (lua_State *L, const char *key, lua_Integer opt) {
 }
 
 /* Push a integer into the registry table at the specified key */
-static void setregi (lua_State *L, const char *key, lua_Integer value) {
+static LUA_RAPIDJSON_INLINE void setregi (lua_State *L, const char *key, lua_Integer value) {
   luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
   lua_pushinteger(L, value);
   lua_setfield(L, -2, key); /* pops value */
@@ -76,7 +76,7 @@ static void setregi (lua_State *L, const char *key, lua_Integer value) {
 ** returns the size_t. If the argument is absent or is nil, returns def.
 ** Otherwise, throw an error.
 */
-static inline size_t luaL_optsizet (lua_State *L, int arg, size_t def) {
+static size_t luaL_optsizet (lua_State *L, int arg, size_t def) {
   lua_Integer i;
   if (lua_isnoneornil(L, arg))
     return def;
