@@ -57,9 +57,9 @@ namespace rapidjson {
   /// </summary>
   class LuaAllocator {
 private:
-    static lua_State *L;
-    static void *l_ud; /* Cache allocator state */
-    static lua_Alloc l_alloc;
+    static thread_local lua_State *L;
+    static thread_local void *l_ud; /* Cache allocator state */
+    static thread_local lua_Alloc l_alloc;
     bool _singleton = false;
 
 public:
@@ -176,7 +176,7 @@ public:
     }
   };
 
-  lua_State *LuaAllocator::L = nullptr;
-  lua_Alloc LuaAllocator::l_alloc = nullptr;
-  void *LuaAllocator::l_ud = nullptr;
+  thread_local lua_State *LuaAllocator::L = nullptr;
+  thread_local lua_Alloc LuaAllocator::l_alloc = nullptr;
+  thread_local void *LuaAllocator::l_ud = nullptr;
 }
