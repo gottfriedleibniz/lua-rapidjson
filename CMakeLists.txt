@@ -6,6 +6,10 @@ option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
 option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
 option (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" ON)
 option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
+option (LUA_RAPIDJSON_LUA_FLOAT "Use lua_number2str instead of internal internal::dtoa/Grisu2" OFF)
+option (LUA_RAPIDJSON_ROUND_FLOAT "Round decimals prior to using internal internal::dtoa/Grisu2" OFF)
+option (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
+option (LUA_RAPIDJSON_STATIC_NIL "Store null reference in a static variable (no longer reentrant)" OFF)
 
 # compile in release  mode by default
 if(NOT CMAKE_BUILD_TYPE)
@@ -68,27 +72,41 @@ if(UNIX)
 
     if (LUA_RAPIDJSON_EXPLICIT)
         add_definitions(-DLUA_RAPIDJSON_EXPLICIT)
-    ENDIF()
+    endif()
 
     if (LUA_RAPIDJSON_COMPAT)
         add_definitions(-DLUA_RAPIDJSON_COMPAT)
-    ENDIF()
+    endif()
 
     if (LUA_RAPIDJSON_SANITIZE_KEYS)
         add_definitions(-DLUA_RAPIDJSON_SANITIZE_KEYS)
-    ENDIF()
+    endif()
 
-    IF(LUA_RAPIDJSON_BIT32)
-       IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    if (LUA_RAPIDJSON_LUA_FLOAT)
+        add_definitions(-DLUA_RAPIDJSON_LUA_FLOAT)
+    elseif(LUA_RAPIDJSON_ROUND_FLOAT)
+        add_definitions(-DLUA_RAPIDJSON_ROUND_FLOAT)
+    endif()
+
+    if (LUA_RAPIDJSON_ALLOCATOR)
+        add_definitions(-DLUA_RAPIDJSON_ALLOCATOR)
+    endif()
+
+    if (LUA_RAPIDJSON_STATIC_NIL)
+        add_definitions(-DLUA_RAPIDJSON_STATIC_NIL)
+    endif()
+
+    if(LUA_RAPIDJSON_BIT32)
+       if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
           set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
           set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
           set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
-       ELSEIF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
           set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
           set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
           set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
-       ENDIF()
-    ENDIF()
+       endif()
+    endif()
 else(UNIX)
     if(WIN32)
         set(PLAT "win32")
@@ -118,7 +136,9 @@ ExternalProject_Add(rapidjson
     GIT_REPOSITORY "https://github.com/Tencent/rapidjson.git"
     GIT_TAG "bfdcf4911047688fec49014d575433e2e5eb05be"
     GIT_SHALLOW 0
-    CMAKE_ARGS += -DRAPIDJSON_BUILD_TESTS=OFF
+    CMAKE_ARGS += -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                  -DRAPIDJSON_BUILD_TESTS=OFF
                   -DRAPIDJSON_BUILD_DOC=OFF
                   -DRAPIDJSON_BUILD_EXAMPLES=OFF
     CONFIGURE_COMMAND ""
