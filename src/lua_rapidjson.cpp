@@ -484,6 +484,10 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   size_t len = 0, position = 0;
   const char *contents = nullptr;
   switch (lua_type(L, 1)) {
+    case LUA_TNIL:
+      len = 0;
+      contents = nullptr;
+      break;
     case LUA_TLIGHTUSERDATA: {
       luaL_checktype(L, 2, LUA_TNUMBER);
 
