@@ -70,9 +70,6 @@ extern "C" {
 /* Macro to avoid warnings about unused variables */
 #define LUA_JSON_UNUSED(x) ((void)(x))
 
-/* Utility to help abstract relative stack indices with absolute */
-#define LUA_JSON_REL_INDEX(idx, n) (((idx) < 0) ? ((idx) - (n)) : (idx))
-
 #if !defined(LUA_MAXINTEGER) /* 51 & 52 */
   #define LUA_MAXINTEGER std::numeric_limits<lua_Integer>::max()
   #define LUA_MININTEGER std::numeric_limits<lua_Integer>::min()
@@ -81,17 +78,20 @@ extern "C" {
 /* maximum size visible for Lua (must be representable in a lua_Integer) */
 #if !defined(MAX_SIZE)
   #if !defined(MAX_SIZET)
-    #define MAX_SIZET ((size_t)(~(size_t)0))
+    #define MAX_SIZET std::numeric_limits<std::size_t>::max()
   #endif
 
   #if LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
-    #define MAX_SIZE (sizeof(size_t) < sizeof(lua_Integer) ? MAX_SIZET : (size_t)(LUA_MAXINTEGER))
+    #define MAX_SIZE (sizeof(size_t) < sizeof(lua_Integer) ? MAX_SIZET : static_cast<size_t>(LUA_MAXINTEGER))
   #elif LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502
     #define MAX_SIZE MAX_SIZET
   #else
     #error unsupported Lua version
   #endif
 #endif
+
+/* Utility to help abstract relative stack indices with absolute */
+#define lua_json_rel_index(idx, n) (((idx) < 0) ? ((idx) - (n)) : (idx))
 
 /*
 ** Returns 1 if the value at the given index is an integer (that is, the value
@@ -111,18 +111,20 @@ static LUA_RAPIDJSON_INLINE int lua_json_isinteger (lua_State *L, int idx) {
 
 /* Unsafe macro to disable constant lua_checkstack calls */
 #if defined(LUA_RAPIDJSON_UNSAFE)
-  #define LUA_JSON_CHECKSTACK(L, sz) ((void)0)
+  #define lua_json_checkstack(L, sz) ((void)0)
 #else
-  #define LUA_JSON_CHECKSTACK(L, sz) \
-    if (!lua_checkstack((L), (sz)))  \
-      throw rapidjson::LuaStackException();
+  #define lua_json_checkstack(L, sz)          \
+    do {                                      \
+      if (!lua_checkstack((L), (sz)))         \
+        throw rapidjson::LuaStackException(); \
+    } while ( 0 )
 #endif
 
 /* Macro for geti/seti. Parameters changed from int to lua_Integer in 53 */
 #if LUA_VERSION_NUM >= 503
   #define lua_json_ti(v) v
 #else
-  #define lua_json_ti(v) (int)(v)
+  #define lua_json_ti(v) static_cast<int>(v)
 #endif
 
 /* }================================================================== */
@@ -244,6 +246,8 @@ LUA_API bool is_json_null (lua_State *L, int idx);
 ** Return true if the table at the specified stack index has a metatable with
 ** a jsontype (see LUA_RAPIDJSON_META_TYPE) field; storing "true" in is_array
 ** if that type corresponds to an array (see LUA_RAPIDJSON_REG_ARRAY).
+**
+** See the note within 'table_is_json_array'.
 */
 LUA_API bool has_json_type (lua_State *L, int idx, bool *is_array);
 
@@ -310,7 +314,7 @@ namespace LuaSAX {
     const char *key;
     size_t len;
 
-    Key() : is_number(false), number(0), key(NULL), len(0) { }
+    Key() : is_number(false), number(0), key(nullptr), len(0) { }
     Key(const char *k, size_t l) : is_number(false), number(0), key(k), len(l) { }
     Key(lua_Number i, const char *k, size_t l) : is_number(true), number(i), key(k), len(l) { }
 
@@ -333,7 +337,7 @@ namespace LuaSAX {
   static int populate_key_vector (lua_State *L, int idx, std::vector<Key> &sink) {
     size_t i, length;
 #if LUA_VERSION_NUM >= 502
-    length = lua_rawlen(L, idx);
+    length = static_cast<size_t>(lua_rawlen(L, idx));
 #else
     length = lua_objlen(L, idx);
 #endif
@@ -341,10 +345,10 @@ namespace LuaSAX {
     for (i = 1; i <= length; ++i) {
       LuaSAX::Key key;
 #if LUA_VERSION_NUM >= 503
-      lua_rawgeti(L, idx, (lua_Integer)i);
+      lua_rawgeti(L, idx, static_cast<lua_Integer>(i));
 #else
-      lua_pushinteger(L, (lua_Integer)i);
-      lua_rawget(L, LUA_JSON_REL_INDEX(idx, 1));
+      lua_pushinteger(L, static_cast<lua_Integer>(i));
+      lua_rawget(L, lua_json_rel_index(idx, 1));
 #endif
 
       if (lua_type(L, -1) == LUA_TSTRING) {
@@ -377,7 +381,7 @@ private:
     /// <summary>
     /// </summary>
     struct Ctx {
-      typedef void (*ctx_callback) (lua_State *L, struct Ctx *ctx);
+      typedef void (*ctx_callback) (lua_State *, struct Ctx *);
       static Ctx Object() { return Ctx(&objectFn); }
       static Ctx Array() { return Ctx(&arrayFn); }
 
@@ -396,7 +400,7 @@ private:
         return *this;
       }
 
-      void submit(lua_State *L) { fn_(L, this); }
+      void submit(lua_State *Ls) { fn_(Ls, this); }
 
       static void objectFn(lua_State *L, Ctx *ctx) {
         LUA_JSON_UNUSED(ctx);
@@ -435,15 +439,19 @@ public:
     }
 
 #if defined(LUA_RAPIDJSON_COMPAT)
-    #define LUA_JSON_SUBMIT() if (!mapValue) { context_.submit(L); }
     #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__, bool mapValue = false)
     #define LUA_JSON_HANDLE_NULL(NAME) bool NAME(bool mapValue = false)
+    #define LUA_JSON_SUBMIT() \
+      do {                    \
+        if (!mapValue)        \
+          context_.submit(L); \
+      } while ( 0 )
 
     bool ImplicitArrayInObjectContext(rapidjson::SizeType u) {
 #if LUA_VERSION_NUM >= 503
       lua_rawseti(L, -2, static_cast<lua_Integer>(u));
 #else
-      LUA_JSON_CHECKSTACK(L, 3);
+      lua_json_checkstack(L, 3);
       lua_pushinteger(L, static_cast<lua_Integer>(u)); /* [..., value, key] */
       lua_pushvalue(L, -2); /* [..., value, key, value] */
       lua_rawset(L, -4); /* [..., value] */
@@ -457,7 +465,7 @@ public:
       return true;
     }
 #else
-    #define LUA_JSON_SUBMIT() context_.submit(L);
+    #define LUA_JSON_SUBMIT() context_.submit(L)
     #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__)
     #define LUA_JSON_HANDLE_NULL(NAME) bool NAME()
 #endif
@@ -622,8 +630,8 @@ private:
     ** required.
     */
     void populate_unordered_vector(lua_State *L, int idx, std::vector<Key> &keyorder, std::vector<Key> &sink) {
-      int i_idx = LUA_JSON_REL_INDEX(idx, 1); /* Account for key */
-      LUA_JSON_CHECKSTACK(L, 3);
+      int i_idx = lua_json_rel_index(idx, 1); /* Account for key */
+      lua_json_checkstack(L, 3);
 
       lua_pushnil(L);
       while (lua_next(L, i_idx)) { /* [key, value] */
@@ -685,10 +693,10 @@ public:
         lua_getfield(L, stateidx, "exception");  // [function]
         if (lua_isfunction(L, -1)) {
           lua_pushstring(L, reason);  // [function, reason]
-          lua_pushvalue(L, LUA_JSON_REL_INDEX(idx, 2));  // [function, reason, value]
+          lua_pushvalue(L, lua_json_rel_index(idx, 2));  // [function, reason, value]
           lua_call(L, 2, 2);  // [r_value, r_reason]
           if (lua_isnil(L, -2)) {
-            *output = luaL_optstring(L, -1, NULL);
+            *output = luaL_optstring(L, -1, nullptr);
           }
           else {
             encodeValue(L, writer, -2, depth + 1);
@@ -726,18 +734,18 @@ public:
           if (lua_json_isinteger(L, idx)) {
 #if defined(LUA_RAPIDJSON_BIT32)
             if (flags & JSON_UNSIGNED_INTEGERS)
-              writer->Uint((unsigned)lua_tointeger(L, idx));
+              writer->Uint(static_cast<unsigned>(lua_tointeger(L, idx)));
             else
-              writer->Int((int)lua_tointeger(L, idx));
+              writer->Int(static_cast<int>(lua_tointeger(L, idx)));
 #else
             if (flags & JSON_UNSIGNED_INTEGERS)
-              writer->Uint64((uint64_t)lua_tointeger(L, idx));
+              writer->Uint64(static_cast<uint64_t>(lua_tointeger(L, idx)));
             else
-              writer->Int64((int64_t)lua_tointeger(L, idx));
+              writer->Int64(static_cast<int64_t>(lua_tointeger(L, idx)));
 #endif
           }
           else {
-            const double d = (double)lua_tonumber(L, idx);
+            const double d = static_cast<double>(lua_tonumber(L, idx));
             if (rapidjson::internal::Double(d).IsNanOrInf()) {
               writer->Null();
             }
@@ -748,7 +756,7 @@ public:
 #else
             else if (!writer->Double(d)) {
 #endif
-              const char *output = NULL;
+              const char *output = nullptr;
               if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
                 if (output)
                   json_error(L, output);
@@ -775,14 +783,14 @@ public:
             writer->Null();
             break;
           }
-          /* FALLTHROUGH */
+          RAPIDJSON_DELIBERATE_FALLTHROUGH;
         case LUA_TLIGHTUSERDATA:
         case LUA_TUSERDATA:
         case LUA_TTHREAD:
         case LUA_TNONE:
         default: {
           if (!encodeMetafield(L, writer, idx, depth)) {
-            const char *output = NULL;
+            const char *output = nullptr;
             if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_TYPE, &output)) {
               if (output)
                 json_error(L, output);
@@ -812,7 +820,7 @@ public:
       }
 
       if (lua_type(L, -1) == LUA_TFUNCTION) {
-        lua_pushvalue(L, LUA_JSON_REL_INDEX(idx, 1));  /* [metafield, self] */
+        lua_pushvalue(L, lua_json_rel_index(idx, 1));  /* [metafield, self] */
         lua_call(L, 1, 1); /* [result] */
         if (lua_type(L, -1) == LUA_TSTRING) {
           size_t len;
@@ -837,7 +845,7 @@ public:
       size_t array_length;
       int top = lua_gettop(L);
       if (depth > max_depth) {
-        const char *output = NULL;
+        const char *output = nullptr;
         if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_CYCLE, &output)) {
           if (flags & JSON_ENCODER_NESTING)
             writer->Null();
@@ -862,7 +870,7 @@ public:
 #endif
         /* __jsonorder returns a function (i.e., order dependent on state) */
         if (lua_type(L, -1) == LUA_TFUNCTION) {
-          lua_pushvalue(L, LUA_JSON_REL_INDEX(idx, 1));  /* self */
+          lua_pushvalue(L, lua_json_rel_index(idx, 1));  /* self */
           lua_call(L, 1, 1);
         }
 
@@ -896,10 +904,10 @@ public:
       writer->StartArray();
       for (size_t i = 1; i <= array_length; ++i) {
 #if LUA_VERSION_NUM >= 503
-        lua_rawgeti(L, idx, (lua_Integer)i);
+        lua_rawgeti(L, idx, static_cast<lua_Integer>(i));
 #else
-        lua_pushinteger(L, (lua_Integer)i);
-        lua_rawget(L, LUA_JSON_REL_INDEX(idx, 1));
+        lua_pushinteger(L, static_cast<lua_Integer>(i));
+        lua_rawget(L, lua_json_rel_index(idx, 1));
 #endif
         encodeValue(L, writer, -1, depth);
         lua_pop(L, 1);
@@ -909,14 +917,14 @@ public:
 
     template<typename Writer>
     void encodeObject(lua_State *L, Writer *writer, int idx, int depth) {
-      int i_idx = LUA_JSON_REL_INDEX(idx, 1);
-      LUA_JSON_CHECKSTACK(L, 3);
+      int i_idx = lua_json_rel_index(idx, 1);
+      lua_json_checkstack(L, 3);
 
       writer->StartObject();
       lua_pushnil(L); /* [table, nil] */
       while (lua_next(L, i_idx)) { /* [table, key, value] */
         size_t len = 0;
-        const char *key = NULL;
+        const char *key = nullptr;
         if (lua_type(L, -2) == LUA_TSTRING) {
           key = lua_tolstring(L, -2, &len);
           writer->Key(key, static_cast<rapidjson::SizeType>(len));
@@ -942,8 +950,8 @@ public:
 
     template<typename Writer>
     void encodeObject(lua_State *L, Writer *writer, int idx, int depth, std::vector<Key> &keyorder, std::vector<Key> &unordered) {
-      int i_idx = LUA_JSON_REL_INDEX(idx, 1);
-      LUA_JSON_CHECKSTACK(L, 2);
+      int i_idx = lua_json_rel_index(idx, 1);
+      lua_json_checkstack(L, 2);
 
       writer->StartObject();
 

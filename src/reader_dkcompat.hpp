@@ -548,7 +548,7 @@ public:
     /*! \param stackAllocator Optional allocator for allocating stack memory. (Only use for non-destructive parsing)
         \param stackCapacity stack capacity in bytes for storing a single decoded string.  (Only use for non-destructive parsing)
     */
-    GenericReader(StackAllocator* stackAllocator = 0, size_t stackCapacity = kDefaultStackCapacity) :
+    GenericReader(StackAllocator* stackAllocator = nullptr, size_t stackCapacity = kDefaultStackCapacity) :
         stack_(stackAllocator, stackCapacity), parseResult_(), state_(IterativeParsingStartState) {}
 
     //! Parse JSON text.
@@ -1514,7 +1514,7 @@ private:
 
         size_t Tell() { return is.Tell(); }
         size_t Length() { return 0; }
-        const char* Pop() { return 0; }
+        const char* Pop() { return nullptr; }
 
     protected:
         NumberStream& operator=(const NumberStream&);
