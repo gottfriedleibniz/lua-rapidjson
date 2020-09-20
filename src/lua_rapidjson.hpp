@@ -15,12 +15,22 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
+#if defined(LUA_COMPILED_AS_HPP)
+  #define LUA_RAPIDJSON_LINKAGE "C++"
+#else
+  #define LUA_RAPIDJSON_LINKAGE "C"
+#endif
 
-extern "C" {
+#if defined(LUA_INCLUDE_HPP)
+  #include <lua.hpp>
+#else
+extern LUA_RAPIDJSON_LINKAGE {
   #include <lua.h>
   #include <lualib.h>
   #include <lauxlib.h>
 }
+#endif
+
 #include "StringStream.hpp"
 
 /* Registry Table Keys */

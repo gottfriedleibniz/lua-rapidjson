@@ -1,8 +1,12 @@
 #pragma once
 #include <string>
-extern "C" {
+#if defined(LUA_INCLUDE_HPP)
+  #include <lua.hpp>
+#else
+extern LUA_RAPIDJSON_LINKAGE {
   #include <lua.h>
 }
+#endif
 
 /*
 ** StringStream

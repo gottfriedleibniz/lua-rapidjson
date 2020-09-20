@@ -43,6 +43,11 @@ IF (LUA_RAPIDJSON_STATIC_NIL)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_STATIC_NIL)
 ENDIF ()
 
+OPTION (LUA_COMPILED_AS_HPP "Library compiled for Lua with C++ linkage" OFF)
+IF (LUA_COMPILED_AS_HPP)
+    ADD_DEFINITIONS (-DLUA_COMPILED_AS_HPP)
+ENDIF ()
+
 OPTION (LUA_RAPIDJSON_EXPERIMENTAL "Experimental performance tweaks" OFF)
 IF (LUA_RAPIDJSON_EXPERIMENTAL)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_EXPERIMENTAL)
@@ -186,6 +191,15 @@ INCLUDE_DIRECTORIES (${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
 FILE (GLOB_RECURSE sourceFiles ./src/*.cpp ./src/*.c)
 FILE (GLOB_RECURSE headerFiles ./src/*.hpp ./src/*.h)
 SET (SOURCES ${sourceFiles} ${headerFiles})
+
+# 51 release does not bundle lua.hpp; must explicitly handle in code
+INCLUDE (CheckIncludeFileCXX)
+CHECK_INCLUDE_FILE_CXX("${LUA_INCLUDE_DIR}/lua.hpp" HAVE_LUA_HPP)
+IF((${HAVE_LUA_HPP}) AND NOT ${LUA_COMPILED_AS_HPP})
+    ADD_COMPILE_OPTIONS (-DLUA_INCLUDE_HPP)
+ELSE ()
+    MESSAGE (WARNING "lua.hpp not bundled, explicitly including headers")
+ENDIF()
 
 ADD_LIBRARY (lua-rapidjson MODULE ${SOURCES})
 ADD_DEPENDENCIES (lua-rapidjson rapidjson)
