@@ -1,134 +1,164 @@
 cmake_minimum_required(VERSION 2.8.0 FATAL_ERROR)
 
 project(lua-rapidjson)
-option (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
-option (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
-option (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
-option (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" ON)
-option (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
-option (LUA_RAPIDJSON_LUA_FLOAT "Use lua_number2str instead of internal internal::dtoa/Grisu2" OFF)
-option (LUA_RAPIDJSON_ROUND_FLOAT "Round decimals prior to using internal internal::dtoa/Grisu2" OFF)
-option (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
-option (LUA_RAPIDJSON_STATIC_NIL "Store null reference in a static variable (no longer reentrant)" OFF)
+IF (CMAKE_CXX_COMPILER MATCHES ".*clang")
+    SET (CMAKE_COMPILER_IS_CLANGXX 1)
+ENDIF ()
 
 # compile in release  mode by default
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-endif()
+IF (NOT CMAKE_BUILD_TYPE)
+    SET (CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+ENDIF ()
 
-if(UNIX)
-    if(APPLE)
-        set(PLAT "macosx")
-        set(LINK_FLAGS "-bundle -undefined dynamic_lookup -all_load")
-    else(APPLE)
-        set(PLAT "linux")
-        set(LINK_FLAGS "-shared")
-    endif(APPLE)
+OPTION (LUA_RAPIDJSON_EXPLICIT "Explicit error vs. Returned error message" OFF)
+IF (LUA_RAPIDJSON_EXPLICIT)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_EXPLICIT)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_COMPAT "Strict compatibility requirements with dkjson" ON)
+IF (LUA_RAPIDJSON_COMPAT)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_COMPAT)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_SANITIZE_KEYS "Ensure key-types are string/numeric on encoding" ON)
+IF (LUA_RAPIDJSON_SANITIZE_KEYS)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_SANITIZE_KEYS)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_LUA_FLOAT "Use lua_number2str instead of internal internal::dtoa/Grisu2" OFF)
+OPTION (LUA_RAPIDJSON_ROUND_FLOAT "Round decimals prior to using internal internal::dtoa/Grisu2" OFF)
+IF (LUA_RAPIDJSON_LUA_FLOAT)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_LUA_FLOAT)
+ELSEIF (LUA_RAPIDJSON_ROUND_FLOAT)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_ROUND_FLOAT)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
+IF (LUA_RAPIDJSON_ALLOCATOR)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_ALLOCATOR)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_STATIC_NIL "Store null reference in a static variable (no longer reentrant)" OFF)
+IF (LUA_RAPIDJSON_STATIC_NIL)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_STATIC_NIL)
+ENDIF ()
+
+OPTION (LUA_RAPIDJSON_EXPERIMENTAL "Experimental performance tweaks" OFF)
+IF (LUA_RAPIDJSON_EXPERIMENTAL)
+    ADD_DEFINITIONS (-DLUA_RAPIDJSON_EXPERIMENTAL)
+ENDIF ()
+
+IF (UNIX)
+    IF (APPLE)
+        SET (PLAT "macosx")
+        SET (LINK_FLAGS "-bundle -undefined dynamic_lookup -all_load")
+    ELSE(APPLE)
+        SET (PLAT "linux")
+        SET (LINK_FLAGS "-shared")
+    ENDIF (APPLE)
 
     # Compiler options taken from Lua: lua/blob/master/makefile
-    add_compile_options(-fPIC
-        #-fmax-errors=5
+    IF (CMAKE_COMPILER_IS_CLANGXX)
+        ADD_COMPILE_OPTIONS (
+            -ferror-limit=5
+            -fno-common
+            #-Weverything
+            #-Wno-c++98-compat
+            #-Wno-c++98-compat-pedantic
+            #-Wno-gnu-zero-variadic-macro-arguments
+            #-Wno-c++17-extensions
+            #-Wno-covered-switch-default
+            #-Wno-reserved-id-macro
+        )
+    elseIF (CMAKE_COMPILER_IS_GNUCXX)
+        ADD_COMPILE_OPTIONS (
+            -fmax-errors=5
+            -Wduplicated-cond
+            -Wduplicated-branches
+            -Wrestrict
+            -Wnull-dereference
+            -Wold-style-cast
+            -Wuseless-cast
+            -Wlogical-op
+            -Wno-useless-cast
+        )
+    ENDIF ()
+
+    ADD_COMPILE_OPTIONS (
+        -fPIC
         -Wall
         -Wextra
+        -Wshadow
         -Wsign-compare
         -Wundef
         -Wwrite-strings
         -Wredundant-decls
-        #-Wdisabled-optimization
         -Wdouble-promotion
-        #-Wlogical-op
+        -Wunused-parameter
+        -Wno-comment
+        -Wno-unused-function
+        -Wno-array-bounds
+
+        #-Wconversion
+        #-Wsign-conversion
+        #-Wdisabled-optimization
         #-Wno-aggressive-loop-optimizations
         # the next warnings might be useful sometimes, but usually they generate too much noise
-        -Werror
-        -Wconversion
-        -Wsign-conversion
-        -Wstrict-overflow=2
-        -Wformat=2
-        -Wcast-qual
+        #-Werror
+        #-Wstrict-overflow=2
+        #-Wformat=2
+        #-Wcast-qual
     )
 
-    # The next warnings are neither valid nor needed for C++
-    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "\
-        -Wdeclaration-after-statement \
-        -Wmissing-prototypes \
-        -Wnested-externs \
-        -Wstrict-prototypes \
-        -Wc++-compat \
-        -Wold-style-definition"
-    )
-
-    include(CheckCXXCompilerFlag)
+    INCLUDE (CheckCXXCompilerFlag)
     CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_ARCH_NATIVE)
-    if (COMPILER_SUPPORTS_ARCH_NATIVE)
-        add_compile_options(-march=native)
-    endif()
+    IF (COMPILER_SUPPORTS_ARCH_NATIVE)
+        ADD_COMPILE_OPTIONS (-march=native)
+    ENDIF ()
 
-    if(LUA_RAPIDJSON_DEBUG)
-        add_compile_options(-O0 -g)
-        add_definitions(-DLUA_USER_H="ltests.h")
-    else()
-        add_compile_options(-O3)
-    endif()
+    OPTION (LUA_RAPIDJSON_DEBUG "Include ltests.h" OFF)
+    IF (LUA_RAPIDJSON_DEBUG)
+        ADD_COMPILE_OPTIONS (-O0 -g)
+        ADD_DEFINITIONS (-DLUA_USER_H="ltests.h")
+    ELSE ()
+        ADD_COMPILE_OPTIONS (-O3)
+    ENDIF ()
 
-    if (LUA_RAPIDJSON_EXPLICIT)
-        add_definitions(-DLUA_RAPIDJSON_EXPLICIT)
-    endif()
-
-    if (LUA_RAPIDJSON_COMPAT)
-        add_definitions(-DLUA_RAPIDJSON_COMPAT)
-    endif()
-
-    if (LUA_RAPIDJSON_SANITIZE_KEYS)
-        add_definitions(-DLUA_RAPIDJSON_SANITIZE_KEYS)
-    endif()
-
-    if (LUA_RAPIDJSON_LUA_FLOAT)
-        add_definitions(-DLUA_RAPIDJSON_LUA_FLOAT)
-    elseif(LUA_RAPIDJSON_ROUND_FLOAT)
-        add_definitions(-DLUA_RAPIDJSON_ROUND_FLOAT)
-    endif()
-
-    if (LUA_RAPIDJSON_ALLOCATOR)
-        add_definitions(-DLUA_RAPIDJSON_ALLOCATOR)
-    endif()
-
-    if (LUA_RAPIDJSON_STATIC_NIL)
-        add_definitions(-DLUA_RAPIDJSON_STATIC_NIL)
-    endif()
-
-    if(LUA_RAPIDJSON_BIT32)
-       if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-          set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
-          set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
-          set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
-       elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-          set (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
-          set (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
-          set (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
-       endif()
-    endif()
-else(UNIX)
-    if(WIN32)
-        set(PLAT "win32")
-        add_definitions(-DLUA_BUILD_AS_DLL -DLUA_LIB -D_CRT_SECURE_NO_WARNINGS)
-    else(WIN32)
-        set(PLAT "unsupported")
-    endif(WIN32)
-endif(UNIX)
+    OPTION (LUA_RAPIDJSON_BIT32 "32bit compile" OFF)
+    IF (LUA_RAPIDJSON_BIT32)
+       IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+          SET (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
+          SET (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
+          SET (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
+       ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+          SET (CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
+          SET (CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
+          SET (CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
+       ENDIF ()
+    ENDIF ()
+ELSE(UNIX)
+    IF (WIN32)
+        SET (PLAT "win32")
+        ADD_DEFINITIONS (-DLUA_BUILD_AS_DLL -DLUA_LIB -D_CRT_SECURE_NO_WARNINGS)
+        ADD_COMPILE_OPTIONS ( /W4 )
+    ELSE(WIN32)
+        SET (PLAT "unsupported")
+    ENDIF (WIN32)
+ENDIF (UNIX)
 
 #-------------------------------------------------------------------------------
 # Lua dependency
 #-------------------------------------------------------------------------------
-if(NOT LUA_INCLUDE_DIR OR (WIN32 AND NOT LUA_LIBRARIES))
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-    find_package(Lua REQUIRED)
-endif()
+IF (NOT LUA_INCLUDE_DIR OR (WIN32 AND NOT LUA_LIBRARIES))
+    SET (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+    FIND_PACKAGE (Lua REQUIRED)
+ENDIF ()
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # rapidjson external dependency
 #-------------------------------------------------------------------------------
-set(LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson/cfx)
+SET (LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson/cfx)
 
 include(ExternalProject)
 ExternalProject_Add(rapidjson
@@ -149,53 +179,45 @@ ExternalProject_Add(rapidjson
 
 # RapidJSON is a header-only library
 ExternalProject_Get_Property(rapidjson source_dir)
-set(RAPIDJSON_INCLUDE_DIRS ${source_dir}/include)
+SET (RAPIDJSON_INCLUDE_DIRS ${source_dir}/include)
 #-------------------------------------------------------------------------------
 
-include_directories(${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES (${LUA_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIRS})
+FILE (GLOB_RECURSE sourceFiles ./src/*.cpp ./src/*.c)
+FILE (GLOB_RECURSE headerFiles ./src/*.hpp ./src/*.h)
+SET (SOURCES ${sourceFiles} ${headerFiles})
 
-set(SOURCES
-    src/StringStream.hpp
-    src/compat_clzll.h
-    src/reader_dkcompat.hpp
-    src/lua_rapidjson.hpp
-    src/lua_rapidjsonlib.h
-    src/lua_rapidjson.cpp
-)
+ADD_LIBRARY (lua-rapidjson MODULE ${SOURCES})
+ADD_DEPENDENCIES (lua-rapidjson rapidjson)
+IF (${CMAKE_VERSION} VERSION_LESS "3.1.0")
+    IF (CMAKE_COMPILER_IS_GNUCXX)
+        EXECUTE_PROCESS (COMMAND "${CMAKE_CXX_COMPILER} -dumpversion" OUTPUT_VARIABLE GCC_VERSION)
+        IF (GCC_VERSION VERSION_LESS 4.7)
+            SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+        ELSE ()
+            SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+        ENDIF ()
+    ENDIF ()
+ELSE ()
+    TARGET_COMPILE_FEATURES (lua-rapidjson PRIVATE cxx_rvalue_references)
+ENDIF ()
 
-add_library(lua-rapidjson MODULE ${SOURCES})
-add_dependencies(lua-rapidjson rapidjson)
-if(${CMAKE_VERSION} VERSION_LESS "3.1.0")
-    if(CMAKE_COMPILER_IS_GNUCXX)
-        execute_process(COMMAND "${CMAKE_CXX_COMPILER} -dumpversion" OUTPUT_VARIABLE GCC_VERSION)
-        if (GCC_VERSION VERSION_LESS 4.7)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-        else()
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-        endif()
-    endif()
-else()
-    target_compile_features(lua-rapidjson PRIVATE cxx_rvalue_references)
-endif()
+SOURCE_GROUP (src FILES ${SOURCES})
 
-source_group(src FILES ${SOURCES})
+IF (WIN32)
+    TARGET_LINK_LIBRARIES (lua-rapidjson ${LUA_LIBRARIES})
+ENDIF ()
 
-if (WIN32)
-    target_link_libraries(lua-rapidjson ${LUA_LIBRARIES})
-endif()
+IF (LINK_FLAGS)
+    TARGET_INCLUDE_DIRECTORIES (lua-rapidjson PRIVATE ${INCLUDE_DIRECTORIES})
+    SET_TARGET_PROPERTIES (lua-rapidjson PROPERTIES LINK_FLAGS ${LINK_FLAGS})
+ENDIF ()
 
-if (LINK_FLAGS)
-    set_target_properties(lua-rapidjson PROPERTIES
-        LINK_FLAGS ${LINK_FLAGS}
-    )
-endif()
-
-set_target_properties(lua-rapidjson PROPERTIES
+SET_TARGET_PROPERTIES (lua-rapidjson PROPERTIES
     OUTPUT_NAME "rapidjson"
     PREFIX ""
 )
 
-
-if (CMAKE_INSTALL_PREFIX)
-  install(TARGETS lua-rapidjson DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
-endif(CMAKE_INSTALL_PREFIX)
+IF (CMAKE_INSTALL_PREFIX)
+  INSTALL (TARGETS lua-rapidjson DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
+ENDIF (CMAKE_INSTALL_PREFIX)

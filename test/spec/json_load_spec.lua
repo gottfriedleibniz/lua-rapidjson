@@ -162,6 +162,43 @@ describe('rapidjson.load()', function()
 
     describe('should return valid table', function()
       it('when load valid json file', function()
+        local t = {
+          ["integer"] = 1234567890,
+          ["real"] = -9876.543210,
+          ["e"] = 0.123456789e-12,
+          ["E"] = 1.234567890E+34,
+          [""] =  23456789012E66,
+          ["zero"] = 0,
+          ["one"] = 1,
+          ["space"] = " ",
+          ["quote"] = "\"",
+          ["backslash"] = "\\",
+          ["controls"] = "\b\f\n\r\t",
+          ["slash"] = "/ & /",
+          ["alpha"] = "abcdefghijklmnopqrstuvwyz",
+          ["ALPHA"] = "ABCDEFGHIJKLMNOPQRSTUVWYZ",
+          ["digit"] = "0123456789",
+          ["0123456789"] = "digit",
+          ["special"] = "`1~!@#$%^&*()_+-={':[,]}|;.</>?",
+          ["true"] = true,
+          ["false"] = false,
+          ["null"] = rapidjson.null,
+          ["array"] = {},
+          ["object"] = {},
+          ["address"] = "50 St. James Street",
+          ["url"] = "http://www.JSON.org/",
+          ["comment"] = "// /* <!-- --",
+          ["# -- --> */"] = " ",
+          [" s p a c e d "] = {1,2,3,4,5,6,7},["compact"] ={1,2,3,4,5,6,7},
+          ["jsontext"] = "{\"object with 1 member\":[\"array with 1 element\"]}",
+          ["quotes"] = "&#34; "..utf8.char(0x0022).." %22 0x22 034 &#x22;",
+          ["/\\\""..utf8.char(0xCAFE,0xBABE,0xAB98,0xFCDE,0xbcda,0xef4A).."\b\f\n\r\t`1~!@#$%^&*()_+-=[]{}|;:',./<>?"] = "A key can be any string",
+        }
+
+        if utf8 ~= nil then
+          t.["hex"] = utf8.char(0x123,0x4567,0x89AB,0xCDEF,0xabcd,0xef4A)
+        end
+
         local a, e
         a = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json')
         e = {
@@ -173,40 +210,7 @@ describe('rapidjson.load()', function()
             true,
             false,
             rapidjson.null,
-            {
-                ["integer"] = 1234567890,
-                ["real"] = -9876.543210,
-                ["e"] = 0.123456789e-12,
-                ["E"] = 1.234567890E+34,
-                [""] =  23456789012E66,
-                ["zero"] = 0,
-                ["one"] = 1,
-                ["space"] = " ",
-                ["quote"] = "\"",
-                ["backslash"] = "\\",
-                ["controls"] = "\b\f\n\r\t",
-                ["slash"] = "/ & /",
-                ["alpha"] = "abcdefghijklmnopqrstuvwyz",
-                ["ALPHA"] = "ABCDEFGHIJKLMNOPQRSTUVWYZ",
-                ["digit"] = "0123456789",
-                ["0123456789"] = "digit",
-                ["special"] = "`1~!@#$%^&*()_+-={':[,]}|;.</>?",
-                ["hex"] = utf8.char(0x123,0x4567,0x89AB,0xCDEF,0xabcd,0xef4A),
-                ["true"] = true,
-                ["false"] = false,
-                ["null"] = rapidjson.null,
-                ["array"] = {},
-                ["object"] = {},
-                ["address"] = "50 St. James Street",
-                ["url"] = "http://www.JSON.org/",
-                ["comment"] = "// /* <!-- --",
-                ["# -- --> */"] = " ",
-                [" s p a c e d "] = {1,2,3,4,5,6,7},["compact"] ={1,2,3,4,5,6,7},
-                ["jsontext"] = "{\"object with 1 member\":[\"array with 1 element\"]}",
-                ["quotes"] = "&#34; "..utf8.char(0x0022).." %22 0x22 034 &#x22;",
-                ["/\\\""..utf8.char(0xCAFE,0xBABE,0xAB98,0xFCDE,0xbcda,0xef4A).."\b\f\n\r\t`1~!@#$%^&*()_+-=[]{}|;:',./<>?"]
-                  = "A key can be any string"
-            },
+            t,
             0.5 ,98.6
         ,
         99.44

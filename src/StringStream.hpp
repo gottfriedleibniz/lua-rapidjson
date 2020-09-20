@@ -2,8 +2,6 @@
 #include <string>
 extern "C" {
   #include <lua.h>
-  #include <lualib.h>
-  #include <lauxlib.h>
 }
 
 /*
@@ -28,7 +26,7 @@ namespace rapidjson {
       Ch Take() { return *src_++; }
       size_t Tell() const { return static_cast<size_t>(src_ - head_); }
 
-      Ch *PutBegin() { RAPIDJSON_ASSERT(false); return 0; }
+      Ch *PutBegin() { RAPIDJSON_ASSERT(false); return nullptr; }
       void Put(Ch) { RAPIDJSON_ASSERT(false); }
       void Flush() { RAPIDJSON_ASSERT(false); }
       size_t PutEnd(Ch *) { RAPIDJSON_ASSERT(false); return 0; }
@@ -86,14 +84,14 @@ public:
 
     void *Malloc(size_t size) {
       if (l_alloc != nullptr && size)  //  behavior of malloc(0) is implementation defined.
-        return l_alloc(l_ud, NULL, 0, size);
-      return NULL;  // standardize to returning NULL.
+        return l_alloc(l_ud, nullptr, 0, size);
+      return nullptr;  // standardize to returning NULL.
     }
 
     void *Realloc(void *originalPtr, size_t originalSize, size_t newSize) {
       if (l_alloc != nullptr)
         return l_alloc(l_ud, originalPtr, originalSize, newSize);
-      return NULL;
+      return nullptr;
     }
 
     /* When nsize is zero, the allocator must behave like free and then return NULL. */
@@ -109,7 +107,7 @@ public:
   class LuaStackException : public std::exception {
 public:
     LuaStackException() { }
-    const char *what() const throw() {
+    const char *what() const noexcept override {
       return "Lua Stack Overflow";
     }
   };
@@ -129,9 +127,8 @@ public:
     LuaException(const char* s) : _msg(s) { }
     LuaException(const std::string& s) : _msg(s) { }
     LuaException(const LuaException &other) : _msg(other._msg) { }
-    ~LuaException() { }
 
-    const char *what() const throw() {
+    const char *what() const noexcept override {
       return _msg.c_str();
     }
   };
@@ -171,7 +168,7 @@ public:
       return 1;
     }
 
-    const char *what() const throw() {
+    const char *what() const noexcept override {
       return "LuaTypeException";
     }
   };

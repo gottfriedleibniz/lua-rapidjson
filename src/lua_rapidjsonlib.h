@@ -24,8 +24,6 @@
 #define lrapidjsonlib_h
 
 #include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
 
 #define LUA_RAPIDJSON_NAME "lua-rapidjson"
 #define LUA_RAPIDJSON_VERSION "lua-rapidjson 1.1.0"
