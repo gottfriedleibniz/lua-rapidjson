@@ -24,10 +24,8 @@ extern "C" {
 #include "StringStream.hpp"
 
 /* Registry Table Keys */
-#define LUA_RAPIDJSON_REG "lua_rapidjson"
 #define LUA_RAPIDJSON_REG_ARRAY "lua_rapidjson_array"
 #define LUA_RAPIDJSON_REG_OBJECT "lua_rapidjson_object"
-#define LUA_RAPIDJSON_REG_NULL "lua_rapidjson_nullref"
 
 /* Metamethods */
 #define LUA_RAPIDJSON_META_TOJSON "__tojson"
@@ -35,14 +33,6 @@ extern "C" {
 #define LUA_RAPIDJSON_META_TYPE "__jsontype"
 #define LUA_RAPIDJSON_META_TYPE_ARRAY "array"
 #define LUA_RAPIDJSON_META_TYPE_OBJECT "object"
-
-/* Registry Table Index */
-#define LUA_RAPIDJSON_REG_FLAGS "flags"
-#define LUA_RAPIDJSON_REG_DEPTH "max_depth"
-#define LUA_RAPIDJSON_REG_LEVEL "level"
-#define LUA_RAPIDJSON_REG_INDENT "indent"
-#define LUA_RAPIDJSON_REG_MAXDEC "decimal_count"
-#define LUA_RAPIDJSON_REG_PRESET "decoder_preset"
 
 /* DKJson Error Messages */
 #define LUA_DKJSON_CYCLE "reference cycle"

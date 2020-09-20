@@ -25,12 +25,55 @@ extern "C" {
 
 /*
 ** Registry (sub-)table
+**
+** http://lua-users.org/lists/lua-l/2011-12/msg00039.html
 */
+#if defined(LUA_RAPIDJSON_EXPERIMENTAL) && LUA_VERSION_NUM >= 502
+  /* Registry Table Keys */
+  static int lua_rapidjson_key = 0;
+  static int lua_rapidjson_key_null = 0;
+  /* Registry Table Index */
+  static int lua_rapidjson_key_flags = 0;
+  static int lua_rapidjson_key_depth = 0;
+  static int lua_rapidjson_key_level = 0;
+  static int lua_rapidjson_key_indent = 0;
+  static int lua_rapidjson_key_maxdec = 0;
+  static int lua_rapidjson_key_preset = 0;
 
-#if LUA_VERSION_NUM < 502
+  /* Registry Table Keys */
+  #define LUA_RAPIDJSON_REG reinterpret_cast<const char*>(&lua_rapidjson_key)
+  #define LUA_RAPIDJSON_REG_NULL reinterpret_cast<const char*>(&lua_rapidjson_key_null)
+
+  /* Registry Table Index */
+  #define LUA_RAPIDJSON_REG_FLAGS reinterpret_cast<const char*>(&lua_rapidjson_key_flags)
+  #define LUA_RAPIDJSON_REG_DEPTH reinterpret_cast<const char*>(&lua_rapidjson_key_depth)
+  #define LUA_RAPIDJSON_REG_LEVEL reinterpret_cast<const char*>(&lua_rapidjson_key_level)
+  #define LUA_RAPIDJSON_REG_INDENT reinterpret_cast<const char*>(&lua_rapidjson_key_indent)
+  #define LUA_RAPIDJSON_REG_MAXDEC reinterpret_cast<const char*>(&lua_rapidjson_key_maxdec)
+  #define LUA_RAPIDJSON_REG_PRESET reinterpret_cast<const char*>(&lua_rapidjson_key_preset)
+
+  #define lua_rapidjson_getfield(L, I, K) lua_rawgetp((L), (I), (K))
+  #define lua_rapidjson_setfield(L, I, K) lua_rawsetp((L), (I), (K))
+#else
+  /* Registry Table Keys */
+  #define LUA_RAPIDJSON_REG "lua_rapidjson"
+  #define LUA_RAPIDJSON_REG_NULL "lua_rapidjson_nullref"
+
+  /* Registry Table Index */
+  #define LUA_RAPIDJSON_REG_FLAGS "flags"
+  #define LUA_RAPIDJSON_REG_DEPTH "max_depth"
+  #define LUA_RAPIDJSON_REG_LEVEL "level"
+  #define LUA_RAPIDJSON_REG_INDENT "indent"
+  #define LUA_RAPIDJSON_REG_MAXDEC "decimal_count"
+  #define LUA_RAPIDJSON_REG_PRESET "decoder_preset"
+
+  #define lua_rapidjson_getfield(L, I, K) lua_getfield((L), (I), (K))
+  #define lua_rapidjson_setfield(L, I, K) lua_setfield((L), (I), (K))
+#endif
+
 #define lua_absindex(L, i) ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : lua_gettop(L) + (i) + 1)
-static int luaL_getsubtable (lua_State *L, int idx, const char *fname) {
-  lua_getfield(L, idx, fname);
+static int lua_rapidjson_getsubtable (lua_State *L, int idx, const char *key) {
+  lua_rapidjson_getfield(L, idx, key);
   if (lua_istable(L, -1))
     return 1; /* table already there */
   else {
@@ -38,16 +81,15 @@ static int luaL_getsubtable (lua_State *L, int idx, const char *fname) {
     idx = lua_absindex(L, idx);
     lua_newtable(L);
     lua_pushvalue(L, -1); /* copy to be left at top */
-    lua_setfield(L, idx, fname); /* assign new table to field */
+    lua_rapidjson_setfield(L, idx, key); /* assign new table to field */
     return 0; /* false, because did not find table there */
   }
 }
-#endif
 
 static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, const char *key, lua_Integer opt) {
   lua_Integer result;
 
-  lua_getfield(L, idx, key);
+  lua_rapidjson_getfield(L, idx, key);
   result = luaL_optinteger(L, -1, opt);
   lua_pop(L, 1); /* key */
   return result;
@@ -57,7 +99,7 @@ static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, const char 
 static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, const char *key, lua_Integer opt) {
   lua_Integer result;
 
-  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
+  lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
   result = geti(L, -1, key, opt);
   lua_pop(L, 1); /* registry */
   return result;
@@ -65,9 +107,9 @@ static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, const char *key, 
 
 /* Push a integer into the registry table at the specified key */
 static LUA_RAPIDJSON_INLINE void setregi (lua_State *L, const char *key, lua_Integer value) {
-  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
+  lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
   lua_pushinteger(L, value);
-  lua_setfield(L, -2, key); /* pops value */
+  lua_rapidjson_setfield(L, -2, key); /* pops value */
   lua_pop(L, 1); /* getregtable */
 }
 
@@ -320,13 +362,13 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   int decimals = LUA_NUMBER_FMT_LEN; // rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
 
   /* Parse default options */
-  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
+  lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
   flags = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_FLAGS, flags));
   depth = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_DEPTH, depth));
   indent = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_INDENT, indent));
   level = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_LEVEL, (indent == 0) ? 4 : 0));
   decimals = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_MAXDEC, decimals));
-  parsemode = static_cast<int>(getregi(L, LUA_RAPIDJSON_REG_PRESET, parsemode));
+  parsemode = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_PRESET, parsemode));
   lua_pop(L, 1);
 
   try {
