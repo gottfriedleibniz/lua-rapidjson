@@ -10,11 +10,7 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/rapidjson.h>
-#if defined(LUA_RAPIDJSON_COMPAT)
-  #include "reader_dkcompat.hpp"
-#else
-  #include <rapidjson/reader.h>
-#endif
+#include <rapidjson/reader.h>
 
 #include "lua_rapidjson.hpp"
 #include "StringStream.hpp"
@@ -204,10 +200,8 @@ bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length
   lua_pushnil(L);
   while (lua_next(L, i_idx)) { /* [key, value] */
     lua_Integer n;
-#if defined(LUA_RAPIDJSON_COMPAT)
     size_t strlen = 0;
     const char *key = nullptr;
-#endif
 
     /* && within range of size_t */
     if (lua_json_isinteger(L, -2) && (n = lua_tointeger(L, -2), (n >= 1 && static_cast<size_t>(n) <= MAX_SIZE))) {
@@ -215,7 +209,6 @@ bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length
       count++;
       max = nst > max ? nst : max;
     }
-#if defined(LUA_RAPIDJSON_COMPAT)
     /* Similar to dkjson; support the common table.pack / { n = select("#", ...), ... } idiom */
     else if (lua_type(L, -2) == LUA_TSTRING
              && lua_json_isinteger(L, -1)
@@ -225,7 +218,6 @@ bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length
       arraylen = static_cast<size_t>(n);
       max = arraylen > max ? arraylen : max;
     }
-#endif
     else {
       lua_settop(L, stacktop);
       return false;
@@ -566,17 +558,13 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
           | rapidjson::ParseFlag::kParseCommentsFlag
           | rapidjson::ParseFlag::kParseTrailingCommasFlag
           | rapidjson::ParseFlag::kParseNanAndInfFlag
-#if defined(LUA_RAPIDJSON_COMPAT)
           | rapidjson::ParseFlag::kParseStopWhenDoneFlag
-#endif
           | rapidjson::ParseFlag::kParseEscapedApostropheFlag>(s, handler);
         break;
       case JSON_DECODE_DEFAULT:
       default:
         r = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags
-#if defined(LUA_RAPIDJSON_COMPAT)
           | rapidjson::ParseFlag::kParseStopWhenDoneFlag
-#endif
           | rapidjson::ParseFlag::kParseTrailingCommasFlag>(s, handler);
         break;
     }
@@ -594,12 +582,8 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #endif
     }
     else {
-#if defined(LUA_RAPIDJSON_COMPAT)
       lua_pushinteger(L, 1 + static_cast<lua_Integer>(s.Tell()));
       return 2;
-#else
-      return 1;
-#endif
     }
   }
   catch (const rapidjson::LuaTypeException &e) {
@@ -764,11 +748,6 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
   lua_pushliteral(L, LUA_RAPIDJSON_VERSION); lua_setfield(L, -2, "_VERSION");
   lua_pushliteral(L, LUA_RAPIDJSON_COPYRIGHT); lua_setfield(L, -2, "_COPYRIGHT");
   lua_pushliteral(L, LUA_RAPIDJSON_DESCRIPTION); lua_setfield(L, -2, "_DESCRIPTION");
-#if defined(LUA_RAPIDJSON_COMPAT)
-  lua_pushboolean(L, 1); lua_setfield(L, -2, "_COMPAT");
-#else
-  lua_pushboolean(L, 0); lua_setfield(L, -2, "_COMPAT");
-#endif
 
   /* Create json.null reference */
   lua_getfield(L, -1, "null");

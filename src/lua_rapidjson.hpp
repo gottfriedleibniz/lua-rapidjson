@@ -452,37 +452,9 @@ public:
       stack_.reserve(LUA_JSON_STACK_RESERVE);
     }
 
-#if defined(LUA_RAPIDJSON_COMPAT)
-    #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__, bool mapValue = false)
-    #define LUA_JSON_HANDLE_NULL(NAME) bool NAME(bool mapValue = false)
-    #define LUA_JSON_SUBMIT() \
-      do {                    \
-        if (!mapValue)        \
-          context_.submit(L); \
-      } while ( 0 )
-
-    bool ImplicitArrayInObjectContext(rapidjson::SizeType u) {
-#if LUA_VERSION_NUM >= 503
-      lua_rawseti(L, -2, static_cast<lua_Integer>(u));
-#else
-      lua_json_checkstack(L, 3);
-      lua_pushinteger(L, static_cast<lua_Integer>(u)); /* [..., value, key] */
-      lua_pushvalue(L, -2); /* [..., value, key, value] */
-      lua_rawset(L, -4); /* [..., value] */
-      lua_pop(L, 1); /* [...] */
-#endif
-      return true;
-    }
-
-    bool ImplicitObjectInContext() {
-      lua_rawset(L, -3);
-      return true;
-    }
-#else
     #define LUA_JSON_SUBMIT() context_.submit(L)
     #define LUA_JSON_HANDLE(NAME, ...) bool NAME(__VA_ARGS__)
     #define LUA_JSON_HANDLE_NULL(NAME) bool NAME()
-#endif
 
     LUA_JSON_HANDLE_NULL(Null) {
       if (nullarg >= 0)
@@ -616,9 +588,7 @@ public:
     }
 
     LUA_JSON_HANDLE(EndArray, rapidjson::SizeType elementCount) {
-#if !defined(LUA_RAPIDJSON_COMPAT)
       lua_assert(elementCount == context_.index_);
-#endif
       LUA_JSON_UNUSED(elementCount);
 
       context_ = stack_.back();

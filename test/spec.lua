@@ -29,8 +29,10 @@ rapidjson.dump = function(json, output, ...)
 end
 
 for i=1,#arg do
-    local f = loadfile(arg[i])
+    local f,message = loadfile(arg[i])
     if f then
         f()
+    else
+        error(message)
     end
 end

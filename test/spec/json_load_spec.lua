@@ -17,11 +17,10 @@ describe('rapidjson.load()', function()
       assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
+      --print(r,o,m)
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
 
       r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail11.json')
       assert.are.equal(nil, r)
@@ -63,19 +62,13 @@ describe('rapidjson.load()', function()
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      -- Comma instead of colon: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail21.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail21.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
 
-      -- Colon instead of comma: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail22.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail22.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
 
       r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail23.json')
       assert.are.equal(nil, r)
@@ -139,25 +132,20 @@ describe('rapidjson.load()', function()
       assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail7.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail7.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail8.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail8.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
+
       -- ExtraComma: Supported in DKJson
       -- Note: default trailing comma support is enabled by default.
-      if not rapidjson._COMPAT then
-        --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
-        --assert.are.equal(nil, r)
-        --assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
     end)
 
     describe('should return valid table', function()
@@ -191,12 +179,12 @@ describe('rapidjson.load()', function()
           ["# -- --> */"] = " ",
           [" s p a c e d "] = {1,2,3,4,5,6,7},["compact"] ={1,2,3,4,5,6,7},
           ["jsontext"] = "{\"object with 1 member\":[\"array with 1 element\"]}",
-          ["quotes"] = "&#34; "..utf8.char(0x0022).." %22 0x22 034 &#x22;",
-          ["/\\\""..utf8.char(0xCAFE,0xBABE,0xAB98,0xFCDE,0xbcda,0xef4A).."\b\f\n\r\t`1~!@#$%^&*()_+-=[]{}|;:',./<>?"] = "A key can be any string",
         }
 
         if utf8 ~= nil then
-          t.["hex"] = utf8.char(0x123,0x4567,0x89AB,0xCDEF,0xabcd,0xef4A)
+          t["hex"] = utf8.char(0x123,0x4567,0x89AB,0xCDEF,0xabcd,0xef4A)
+          t["quotes"] = "&#34; "..utf8.char(0x0022).." %22 0x22 034 &#x22;"
+          t["/\\\""..utf8.char(0xCAFE,0xBABE,0xAB98,0xFCDE,0xbcda,0xef4A).."\b\f\n\r\t`1~!@#$%^&*()_+-=[]{}|;:',./<>?"] = "A key can be any string"
         end
 
         local a, e

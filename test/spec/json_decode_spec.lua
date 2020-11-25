@@ -27,13 +27,11 @@ describe('rapidjson.decode()', function()
 
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, _, m = rapidjson.decode('{}10')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-        idx = string.find(m, "The document root must not be followed by other values.", 1, true)
-        assert.are_not.equal(nil, idx)
-      end
+      -- r, _, m = rapidjson.decode('{}10')
+      -- assert.are.equal(nil, r)
+      -- assert.are.equal('string', type(m))
+      -- idx = string.find(m, "The document root must not be followed by other values.", 1, true)
+      -- assert.are_not.equal(nil, idx)
 
       r, _, m = rapidjson.decode('{"a":b}')
       assert.are.equal(nil, r)
@@ -42,20 +40,18 @@ describe('rapidjson.decode()', function()
       assert.are_not.equal(nil, idx)
 
       -- DKJson: Supported
-      if not rapidjson._COMPAT then
-        r, _, m = rapidjson.decode('{12}')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-        idx = string.find(m, "Missing a name for object member.", 1, true)
-        assert.are_not.equal(nil, idx)
-      end
+      r, _, m = rapidjson.decode('{12}')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+      idx = string.find(m, "Missing a name for object member.", 1, true)
+      assert.are_not.equal(nil, idx)
 
       -- DKJson: TrailingCommas Supported
-      --r, _, m = rapidjson.decode('{"a",}')
-      --assert.are.equal(nil, r)
-      --assert.are.equal('string', type(m))
-      --idx = string.find(m, "Missing a colon after a name of object member.", 1, true)
-      --assert.are_not.equal(nil, idx)
+      r, _, m = rapidjson.decode('{"a",}')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+      idx = string.find(m, "Missing a colon after a name of object member.", 1, true)
+      assert.are_not.equal(nil, idx)
 
       r, _, m = rapidjson.decode('{"a":[] "b":[]}')
       assert.are.equal(nil, r)
