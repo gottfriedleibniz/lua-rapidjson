@@ -15,11 +15,23 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
+#if defined(LUA_COMPILED_AS_HPP)
+  #define LUA_RAPIDJSON_LINKAGE "C++"
+#else
+  #define LUA_RAPIDJSON_LINKAGE "C"
+#endif
 
-extern "C" {
+#if defined(LUA_INCLUDE_HPP)
+  #include <lua.hpp>
+#else
+extern LUA_RAPIDJSON_LINKAGE {
   #include <lua.h>
   #include <lualib.h>
   #include <lauxlib.h>
+}
+#endif
+
+extern LUA_RAPIDJSON_LINKAGE {
 #if LUA_VERSION_NUM == 504  /* gritLua 5.4 */
   #include <lgrit_lib.h>
 #elif LUA_VERSION_NUM == 503  /* cfxLua 5.3 */
@@ -29,6 +41,7 @@ extern "C" {
    #error unsupported Lua version
 #endif
 }
+
 #include "StringStream.hpp"
 
 /* Registry Table Keys */
@@ -64,6 +77,12 @@ extern "C" {
 ** Lua Compatibility
 ** ===================================================================
 */
+
+#if LUA_VERSION_NUM >= 503 // Changed from returning false/0 to LUA_TNIL in Lua 5.3;
+  #define LUA_METAFIELD_FAIL LUA_TNIL
+#else
+  #define LUA_METAFIELD_FAIL 0
+#endif
 
 /* Macro to avoid warnings about unused variables */
 #define LUA_JSON_UNUSED(x) ((void)(x))
@@ -162,6 +181,13 @@ static LUA_RAPIDJSON_INLINE int lua_json_isinteger (lua_State *L, int idx) {
   #define LUA_JSON_STACK_RESERVE 32
 #endif
 
+/* Default allocator class */
+#if defined(LUA_RAPIDJSON_ALLOCATOR)
+  #define RAPIDJSON_ALLOCATOR rapidjson::LuaAllocator
+#else
+  #define RAPIDJSON_ALLOCATOR rapidjson::CrtAllocator
+#endif
+
 /*
 ** rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces
 ** replacement, based upon the default string formats for Lua.
@@ -232,13 +258,13 @@ static inline bool tostringbuff(lua_State *L, Writer *writer, double value) {
 */
 
 /* Pushes the null-sentinel onto the stack; returning 1. */
-LUA_API int json_null (lua_State *L);
+LUAI_FUNC int json_null (lua_State *L);
 
 /*
 ** Return true if the object at the specific stack index is, or a reference to,
 ** json_null.
 */
-LUA_API bool is_json_null (lua_State *L, int idx);
+LUAI_FUNC bool is_json_null (lua_State *L, int idx);
 
 /*
 ** Return true if the table at the specified stack index has a metatable with
@@ -247,7 +273,7 @@ LUA_API bool is_json_null (lua_State *L, int idx);
 **
 ** See the note within 'table_is_json_array'.
 */
-LUA_API bool has_json_type (lua_State *L, int idx, bool *is_array);
+LUAI_FUNC bool has_json_type (lua_State *L, int idx, bool *is_array);
 
 /*
 ** Return true if the table at the specified stack index can be encoded as an
@@ -264,7 +290,7 @@ LUA_API bool has_json_type (lua_State *L, int idx, bool *is_array);
 **      isa = false
 **    end*
 */
-LUA_API bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length);
+LUAI_FUNC bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length);
 
 /*
 ** A try/catch extension of luaL_error: "raises an error. The error message
@@ -276,7 +302,7 @@ LUA_API bool table_is_json_array (lua_State *L, int idx, int flags, size_t *arra
 ** data by rapidjson, e.g., see rapidjson::CrtAllocator, can be properly
 ** deallocated during stack-unwinding.
 */
-LUA_API int json_error (lua_State *L, const char *message);
+LUAI_FUNC int json_error (lua_State *L, const char *message);
 
 /* Handle gritLua vectors */
 static LUA_RAPIDJSON_INLINE int parseVector (lua_State *L, int idx, lua_Float4 *f) {
@@ -327,7 +353,7 @@ static LUA_RAPIDJSON_INLINE int parseVector (lua_State *L, int idx, lua_Float4 *
 #define JSON_ENCODER_MAX_DEPTH  0x80 /* Maximum depth of a table. */
 #define JSON_ENCODER_LEVEL      0x100 /* Reserved */
 #define JSON_ENCODER_INDENT     0x200 /* Reserved */
-#define JSON_ENCODER_DECIMALS   0x400
+#define JSON_ENCODER_DECIMALS   0x400 /* Maximum number of decimal places to encode for floating point types */
 #define JSON_ENCODER_NESTING    0x800 /* Push json.nill() instead of throwing a LUA_DKJSON_DEPTH_LIMIT error */
 #define JSON_TABLE_KEY_ORDER    0x1000 /* Reserved */
 #define JSON_DECODER_PRESET     0x2000 /* Preset flags for decoding */
@@ -373,25 +399,26 @@ namespace LuaSAX {
     for (i = 1; i <= length; ++i) {
       LuaSAX::Key key;
 #if LUA_VERSION_NUM >= 503
-      lua_rawgeti(L, idx, static_cast<lua_Integer>(i));
+      const int type = lua_rawgeti(L, idx, static_cast<lua_Integer>(i));
 #else
       lua_pushinteger(L, static_cast<lua_Integer>(i));
       lua_rawget(L, lua_json_rel_index(idx, 1));
+      const int type = lua_type(L, -1);
 #endif
 
-      if (lua_type(L, -1) == LUA_TSTRING) {
+      if (type == LUA_TSTRING) {
         key.is_number = false;
         key.number = 0;
         key.key = lua_tolstring(L, -1, &key.len);
       }
-      else if (lua_type(L, -1) == LUA_TNUMBER) {
+      else if (type == LUA_TNUMBER) {
         key.is_number = true;
         key.number = lua_tonumber(L, -1);
         key.key = lua_tolstring(L, -1, &key.len); /* value converted to string */
       }
       else {
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
-        throw rapidjson::LuaTypeException(lua_type(L, -1), rapidjson::LuaTypeException::UnsupportedKeyOrder);
+        throw rapidjson::LuaTypeException(type, rapidjson::LuaTypeException::UnsupportedKeyOrder);
 #else
         lua_pop(L, 1);
         continue;
@@ -454,7 +481,7 @@ private:
 
     lua_State *L;
     lua_Integer flags;
-    int nullarg;  /* Stack index of "null" arguments */
+    int nullarg;  /* Stack index of object that represents "null" */
     int objectarg;  /* Stack index of "object" metatable */
     int arrayarg;  /* Stack index of "array" metatable */
     std::vector<Ctx> stack_;
@@ -663,7 +690,8 @@ private:
 
       lua_pushnil(L);
       while (lua_next(L, i_idx)) { /* [key, value] */
-        if (lua_type(L, -2) == LUA_TSTRING) {
+        const int type = lua_type(L, -2);
+        if (type == LUA_TSTRING) {
           Key k;
           k.is_number = false;
           k.number = 0;
@@ -671,7 +699,7 @@ private:
           if (std::find_if(keyorder.begin(), keyorder.end(), k) == keyorder.end())
             sink.push_back(k);
         }
-        else if (lua_type(L, -2) == LUA_TNUMBER) {
+        else if (type == LUA_TNUMBER) {
           Key k;
           lua_pushvalue(L, -2); /* [key, value, number for formatting] */
 
@@ -685,7 +713,7 @@ private:
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          throw rapidjson::LuaTypeException(lua_type(L, -2), rapidjson::LuaTypeException::UnsupportedKeyOrder);
+          throw rapidjson::LuaTypeException(type, rapidjson::LuaTypeException::UnsupportedKeyOrder);
         }
 #endif
         lua_pop(L, 1); /* [key] */
@@ -696,6 +724,7 @@ public:
     Writer()
       : flags(JSON_DEFAULT), max_depth(JSON_DEFAULT_DEPTH), stateidx(-1) {
     }
+
     Writer(int _flags, int _maxdepth, int _state, std::vector<Key> &_order)
       : flags(_flags), max_depth(_maxdepth), stateidx(_state), order(_order) {
     }
@@ -708,11 +737,15 @@ public:
       flags = f;
       return *this;
     }
+
     Writer &SetMaxDepth(int d) {
       max_depth = d;
       return *this;
     }
 
+    /// <summary>
+    /// Handle generate an excoding exception,
+    /// </summary>
     template<typename Writer>
     bool handle_exception(lua_State *L, Writer *writer, int idx, int depth, const char *reason, const char **output) {
       bool result = false;
@@ -786,11 +819,7 @@ public:
 #endif
               const char *output = nullptr;
               if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_NUMBER, &output)) {
-                if (output)
-                  json_error(L, output);
-                else
-                  json_error(L, "error encoding: kWriteNanAndInfFlag");
-                return;
+                json_error(L, (output != nullptr) ? output : "error encoding: kWriteNanAndInfFlag");
               }
             }
           }
@@ -830,18 +859,19 @@ public:
           size_t len;
           const char *s = lua_tolstring(L, idx, &len);
           writer->String(s, static_cast<rapidjson::SizeType>(len));
-          return;
+          break;
         }
         case LUA_TTABLE: {
           encodeTable(L, writer, idx, depth + 1);
-          return;
+          break;
         }
-        case LUA_TFUNCTION:
+        case LUA_TFUNCTION: {
           if (is_json_null(L, idx)) {
             writer->Null();
             break;
           }
-          /* FALLTHROUGH */
+          /* FALLTHROUGH */ // RAPIDJSON_DELIBERATE_FALLTHROUGH;
+        }
         case LUA_TLIGHTUSERDATA:
         case LUA_TUSERDATA:
         case LUA_TTHREAD:
@@ -854,7 +884,6 @@ public:
                 json_error(L, output);
               else
                 throw rapidjson::LuaTypeException(lua_type(L, idx), rapidjson::LuaTypeException::UnsupportedType);
-              return;
             }
           }
           break;
@@ -869,14 +898,11 @@ public:
     template<typename Writer>
     bool encodeMetafield(lua_State *L, Writer *writer, int idx, int depth) {
       LUA_JSON_UNUSED(depth);
-#if LUA_VERSION_NUM >= 503
-      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == LUA_TNIL) {
-#else
-      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == 0) {
-#endif
+      if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TOJSON) == LUA_METAFIELD_FAIL) {
         return false;
       }
 
+      bool result = true;  // Avoid potential "unreachable" code warnings.
       if (lua_type(L, -1) == LUA_TFUNCTION) {
         lua_pushvalue(L, lua_json_rel_index(idx, 1));  /* [metafield, self] */
         lua_call(L, 1, 1); /* [result] */
@@ -886,22 +912,23 @@ public:
           writer->RawValue(str, len, rapidjson::Type::kObjectType);
         }
         else {
+          result = false;
           json_error(L, "Invalid " LUA_RAPIDJSON_META_TOJSON " result");
-          return false;
         }
         lua_pop(L, 1); /* [] */
       }
       else {
+        result = false;
         json_error(L, "Invalid " LUA_RAPIDJSON_META_TOJSON " function");
-        return false;
       }
-      return true;
+      return result;
     }
 
     template<typename Writer>
     void encodeTable(lua_State *L, Writer *writer, int idx, int depth) {
+      const int top = lua_gettop(L);
+
       size_t array_length;
-      int top = lua_gettop(L);
       if (depth > max_depth) {
         const char *output = nullptr;
         if (!handle_exception(L, writer, idx, depth, LUA_DKJSON_CYCLE, &output)) {
@@ -921,11 +948,7 @@ public:
       else if (table_is_json_array(L, idx, flags, &array_length)) {
         encode_array(L, writer, idx, array_length, depth);
       }
-#if LUA_VERSION_NUM >= 503
-      else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != LUA_TNIL) {
-#else
-      else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != 0) {
-#endif
+      else if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_ORDER) != LUA_METAFIELD_FAIL) {
         /* __jsonorder returns a function (i.e., order dependent on state) */
         if (lua_type(L, -1) == LUA_TFUNCTION) {
           lua_pushvalue(L, lua_json_rel_index(idx, 1));  /* self */
@@ -983,12 +1006,14 @@ public:
       while (lua_next(L, i_idx)) { /* [table, key, value] */
         size_t len = 0;
         const char *key = nullptr;
-        if (lua_type(L, -2) == LUA_TSTRING) {
+
+        const int type = lua_type(L, -2);
+        if (type == LUA_TSTRING) {
           key = lua_tolstring(L, -2, &len);
           writer->Key(key, static_cast<rapidjson::SizeType>(len));
           encodeValue(L, writer, -1, depth);
         }
-        else if (lua_type(L, -2) == LUA_TNUMBER) {
+        else if (type == LUA_TNUMBER) {
           lua_pushvalue(L, -2); /* [key, value, key] */
           key = lua_tolstring(L, -1, &len); /* edge-case: inf/NaN -> "inf"/"NaN" */
           writer->Key(key, static_cast<rapidjson::SizeType>(len));
@@ -998,7 +1023,7 @@ public:
         }
 #if defined(LUA_RAPIDJSON_SANITIZE_KEYS)
         else {
-          throw rapidjson::LuaTypeException(lua_type(L, -2), rapidjson::LuaTypeException::UnsupportedKeyOrder);
+          throw rapidjson::LuaTypeException(type, rapidjson::LuaTypeException::UnsupportedKeyOrder);
         }
 #endif
         lua_pop(L, 1); /* pop value: [table, key] */

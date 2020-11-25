@@ -23,43 +23,35 @@ extern "C" {
   #include "lua_rapidjsonlib.h"
 }
 
-/*
-** Registry (sub-)table
-**
-** http://lua-users.org/lists/lua-l/2011-12/msg00039.html
-*/
-#if defined(LUA_RAPIDJSON_EXPERIMENTAL) && LUA_VERSION_NUM >= 502
-  /* Registry Table Keys */
-  static int lua_rapidjson_key = 0;
-  static int lua_rapidjson_key_null = 0;
-  /* Registry Table Index */
-  static int lua_rapidjson_key_flags = 0;
-  static int lua_rapidjson_key_depth = 0;
-  static int lua_rapidjson_key_level = 0;
-  static int lua_rapidjson_key_indent = 0;
-  static int lua_rapidjson_key_maxdec = 0;
-  static int lua_rapidjson_key_preset = 0;
+#if defined(LUA_RAPIDJSON_EXPERIMENTAL)
+  #if LUA_VERSION_NUM <= 502
+  typedef int json_regType; /* Registry Table KeyType */
+  #else
+  typedef lua_Integer json_regType; /* Registry Table KeyType */
+  #endif
 
-  /* Registry Table Keys */
-  #define LUA_RAPIDJSON_REG reinterpret_cast<const char*>(&lua_rapidjson_key)
-  #define LUA_RAPIDJSON_REG_NULL reinterpret_cast<const char*>(&lua_rapidjson_key_null)
-
-  /* Registry Table Index */
-  #define LUA_RAPIDJSON_REG_FLAGS reinterpret_cast<const char*>(&lua_rapidjson_key_flags)
-  #define LUA_RAPIDJSON_REG_DEPTH reinterpret_cast<const char*>(&lua_rapidjson_key_depth)
-  #define LUA_RAPIDJSON_REG_LEVEL reinterpret_cast<const char*>(&lua_rapidjson_key_level)
-  #define LUA_RAPIDJSON_REG_INDENT reinterpret_cast<const char*>(&lua_rapidjson_key_indent)
-  #define LUA_RAPIDJSON_REG_MAXDEC reinterpret_cast<const char*>(&lua_rapidjson_key_maxdec)
-  #define LUA_RAPIDJSON_REG_PRESET reinterpret_cast<const char*>(&lua_rapidjson_key_preset)
-
-  #define lua_rapidjson_getfield(L, I, K) lua_rawgetp((L), (I), (K))
-  #define lua_rapidjson_setfield(L, I, K) lua_rawsetp((L), (I), (K))
-#else
   /* Registry Table Keys */
   #define LUA_RAPIDJSON_REG "lua_rapidjson"
-  #define LUA_RAPIDJSON_REG_NULL "lua_rapidjson_nullref"
 
-  /* Registry Table Index */
+  /* Registry Subtable Keys */
+  #define LUA_RAPIDJSON_REG_NULL 1
+  #define LUA_RAPIDJSON_REG_FLAGS 2
+  #define LUA_RAPIDJSON_REG_DEPTH 3
+  #define LUA_RAPIDJSON_REG_LEVEL 4
+  #define LUA_RAPIDJSON_REG_INDENT 5
+  #define LUA_RAPIDJSON_REG_MAXDEC 6
+  #define LUA_RAPIDJSON_REG_PRESET 7
+
+  #define lua_rapidjson_getfield(L, I, K) lua_rawgeti((L), (I), (K))
+  #define lua_rapidjson_setfield(L, I, K) lua_rawseti((L), (I), (K))
+#else
+  typedef const char *json_regType; /* Registry Table KeyType */
+
+  /* Registry Table Keys */
+  #define LUA_RAPIDJSON_REG "lua_rapidjson"
+
+  /* Registry Subtable Keys */
+  #define LUA_RAPIDJSON_REG_NULL "lua_rapidjson_nullref"
   #define LUA_RAPIDJSON_REG_FLAGS "flags"
   #define LUA_RAPIDJSON_REG_DEPTH "max_depth"
   #define LUA_RAPIDJSON_REG_LEVEL "level"
@@ -73,7 +65,7 @@ extern "C" {
 
 #define lua_absindex(L, i) ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : lua_gettop(L) + (i) + 1)
 static int lua_rapidjson_getsubtable (lua_State *L, int idx, const char *key) {
-  lua_rapidjson_getfield(L, idx, key);
+  lua_getfield(L, idx, key);
   if (lua_istable(L, -1))
     return 1; /* table already there */
   else {
@@ -81,12 +73,12 @@ static int lua_rapidjson_getsubtable (lua_State *L, int idx, const char *key) {
     idx = lua_absindex(L, idx);
     lua_newtable(L);
     lua_pushvalue(L, -1); /* copy to be left at top */
-    lua_rapidjson_setfield(L, idx, key); /* assign new table to field */
+    lua_setfield(L, idx, key); /* assign new table to field */
     return 0; /* false, because did not find table there */
   }
 }
 
-static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, const char *key, lua_Integer opt) {
+static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, json_regType key, lua_Integer opt) {
   lua_Integer result;
 
   lua_rapidjson_getfield(L, idx, key);
@@ -96,7 +88,7 @@ static LUA_RAPIDJSON_INLINE lua_Integer geti (lua_State *L, int idx, const char 
 }
 
 /* Fetch a lua_Int from the registry table */
-static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, const char *key, lua_Integer opt) {
+static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, json_regType key, lua_Integer opt) {
   lua_Integer result;
 
   lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
@@ -106,7 +98,7 @@ static LUA_RAPIDJSON_INLINE lua_Integer getregi (lua_State *L, const char *key, 
 }
 
 /* Push a integer into the registry table at the specified key */
-static LUA_RAPIDJSON_INLINE void setregi (lua_State *L, const char *key, lua_Integer value) {
+static LUA_RAPIDJSON_INLINE void setregi (lua_State *L, json_regType key, lua_Integer value) {
   lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
   lua_pushinteger(L, value);
   lua_rapidjson_setfield(L, -2, key); /* pops value */
@@ -140,8 +132,7 @@ static size_t luaL_optsizet (lua_State *L, int arg, size_t def) {
 /* A luaL_checkoption that doesn't throw an error. */
 static int luaL_optcheckoption (lua_State *L, int arg, const char *def, const char *const lst[], int ldef) {
   const char *name = (def) ? luaL_optstring(L, arg, def) : luaL_checkstring(L, arg);
-  int i;
-  for (i = 0; lst[i]; i++) {
+  for (int i = 0; lst[i]; i++) {
     if (strcmp(lst[i], name) == 0)
       return i;
   }
@@ -153,39 +144,34 @@ static int luaL_optcheckoption (lua_State *L, int arg, const char *def, const ch
 ** API Functions
 ** ===================================================================
 */
-#if defined(LUA_RAPIDJSON_STATIC_NIL)
-static int nullref = LUA_NOREF;
-#endif
 
-LUA_API int json_null (lua_State *L) {
-#if defined(LUA_RAPIDJSON_STATIC_NIL)
-  lua_rawgeti(L, LUA_REGISTRYINDEX, nullref);
-#else
+// Default exception implementation.
+int json_error (lua_State *L, const char *message) {
+  LUA_JSON_UNUSED(L);
+  throw rapidjson::LuaException(message);
+}
+
+int json_null (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, lua_json_ti(getregi(L, LUA_RAPIDJSON_REG_NULL, LUA_REFNIL)));
-#endif
   return 1;
 }
 
-LUA_API bool is_json_null (lua_State *L, int idx) {
-  lua_pushvalue(L, idx); /* [value] */
+bool is_json_null (lua_State *L, int idx) {
+  bool is = false;
 
+  lua_pushvalue(L, idx); /* [value] */
   json_null(L); /* [value, json.null] */
-  bool is = lua_rawequal(L, -1, -2) != 0;
+  is = lua_rawequal(L, -1, -2) != 0;
+
   lua_pop(L, 2);
   return is;
 }
 
-LUA_API bool has_json_type (lua_State *L, int idx, bool *is_array) {
+bool has_json_type (lua_State *L, int idx, bool *is_array) {
   bool result = false;
-#if LUA_VERSION_NUM >= 503
-  if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TYPE) != LUA_TNIL) {
-#else
-  if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TYPE) != 0) {
-#endif
+  if (luaL_getmetafield(L, idx, LUA_RAPIDJSON_META_TYPE) != LUA_METAFIELD_FAIL) {
     if (lua_type(L, -1) == LUA_TSTRING) {
-      size_t len;
-      const char *s = lua_tolstring(L, -1, &len);
-      *is_array = strncmp(s, LUA_RAPIDJSON_META_TYPE_ARRAY, std::min(len, sizeof(LUA_RAPIDJSON_META_TYPE_ARRAY))) == 0;
+      *is_array = strcmp(lua_tostring(L, -1), LUA_RAPIDJSON_META_TYPE_ARRAY) == 0;
       result = true;
     }
     lua_pop(L, 1);
@@ -193,70 +179,64 @@ LUA_API bool has_json_type (lua_State *L, int idx, bool *is_array) {
   return result;
 }
 
-LUA_API bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length) {
-  bool has_type = false;
-  bool is_array = false;
-  int stacktop = 0;
-  int i_idx = lua_json_rel_index(idx, 1);
+bool table_is_json_array (lua_State *L, int idx, int flags, size_t *array_length) {
+  bool has_type = false; // Has __jsontype field;
+  bool is_array = false; // __jsontype field corresponds to an "array" value.
 
-  lua_Integer n;
-  size_t count = 0, max = 0, arraylen = 0;
-#if defined(LUA_RAPIDJSON_COMPAT)
-  size_t strlen = 0;
-  const char *key = nullptr;
-#endif
+  size_t count = 0; // Number of valid array elements
+  size_t max = 0; // Maximum (parsed) integer key
+  size_t arraylen = 0; // Supplied table.pack 'n' value
 
-  lua_json_checkstack(L, 2);
-  stacktop = lua_gettop(L);
+  const int i_idx = lua_json_rel_index(idx, 1);
+  const int stacktop = lua_gettop(L);
+
+  lua_json_checkstack(L, 3);
   has_type = has_json_type(L, idx, &is_array);
 
   lua_pushnil(L);
   while (lua_next(L, i_idx)) { /* [key, value] */
+    lua_Integer n;
+    size_t strlen = 0;
+    const char *key = nullptr;
+
     /* && within range of size_t */
-    if (lua_json_isinteger(L, -2)
-        && ((n = lua_tointeger(L, -2)) >= 1 && (static_cast<size_t>(n)) <= MAX_SIZE)) {
+    if (lua_json_isinteger(L, -2) && (n = lua_tointeger(L, -2), (n >= 1 && static_cast<size_t>(n) <= MAX_SIZE))) {
       const size_t nst = static_cast<size_t>(n);
       count++;
       max = nst > max ? nst : max;
     }
-#if defined(LUA_RAPIDJSON_COMPAT)
-    /* Similar to dkjson; support the common { n = select("#", ...), ... } idiom */
+    /* Similar to dkjson; support the common table.pack / { n = select("#", ...), ... } idiom */
     else if (lua_type(L, -2) == LUA_TSTRING
              && lua_json_isinteger(L, -1)
-             && ((n = lua_tointeger(L, -1)) >= 1 && static_cast<size_t>(n) <= MAX_SIZE)
+             && (n = lua_tointeger(L, -1), (n >= 1 && static_cast<size_t>(n) <= MAX_SIZE))
              && (key = lua_tolstring(L, -2, &strlen)) != nullptr
              && strlen == 1 && key[0] == 'n') {
       arraylen = static_cast<size_t>(n);
       max = arraylen > max ? arraylen : max;
     }
-#endif
     else {
       lua_settop(L, stacktop);
-      return 0;
+      return false;
     }
     lua_pop(L, 1); /* [key] */
   }
+
   *array_length = max;
   lua_settop(L, stacktop);
 
   /*
-  ** encode2: an empty Lua table as an object iff its given an object
-  ** __jsontype. (Library addition:) Otherwise, only encode an empty table
-  ** as an object if the JSON_EMPTY_AS_ARRAY is not set.
+  ** encode2: an empty Lua table as an object iff its given an object jsontype.
+  ** (Library addition:) Otherwise, only encode an empty table as an object if
+  ** the JSON_EMPTY_AS_ARRAY is not set.
   **/
   if (max == 0 && has_type && !is_array)
-    return 0;
-  else if (max == count)
+    return false;
+  else if (max == count) // all keys are positive integers from [1, count] or the table is empty;
     return max > 0 || (flags & JSON_EMPTY_AS_ARRAY);
-  /* don't create an array with too many holes (inserted nils) */
-  else if (flags & JSON_ARRAY_WITH_HOLES)
-    return ((max < LUA_DKJSON_TABLE_CUTOFF) || max <= arraylen || (count >= (max >> 1)));
-  return 0;
-}
+  else if (flags & JSON_ARRAY_WITH_HOLES) // do not create an array with too many holes (inserted nils);
+    return (max < LUA_DKJSON_TABLE_CUTOFF) || max <= arraylen || (count >= (max >> 1));
 
-LUA_API int json_error (lua_State *L, const char *message) {
-  LUA_JSON_UNUSED(L);
-  throw rapidjson::LuaException(message);
+  return false;
 }
 
 /* }================================================================== */
@@ -272,14 +252,15 @@ LUA_API int json_error (lua_State *L, const char *message) {
 
 /*
 ** kParseFullPrecisionFlag + kParseCommentsFlag + kParseTrailingCommasFlag
-** kParseNanAndInfFlag + kParseEscapedApostropheFlag
+** kParseNanAndInfFlag
 */
 #define JSON_DECODE_EXTENDED 0x1
 
 /* PrettyWriter indentation characters */
 static const char pretty_indent[] = { ' ', '\t', '\n', '\r' };
 
-static const char *const opts[] = {
+/* Configuration options */
+static const char *const option_keys[] = {
   "",
   "null",
   "indent", "pretty",
@@ -288,10 +269,10 @@ static const char *const opts[] = {
   "unsigned",
   "empty_table_as_array",
   "with_hole",
-  LUA_RAPIDJSON_REG_DEPTH,
-  LUA_RAPIDJSON_REG_LEVEL,
-  LUA_RAPIDJSON_REG_INDENT,
-  LUA_RAPIDJSON_REG_MAXDEC,
+  "max_depth",
+  "level",
+  "indent",
+  "decimal_count",
   "nesting",
   "keyorder",
   "decoder_preset",
@@ -299,7 +280,8 @@ static const char *const opts[] = {
   nullptr
 };
 
-static const int optsnum[] = {
+/* option_keys -> integer codes */
+static const int option_keys_num[] = {
   0x0, /* RESERVED */
   JSON_LUA_NILL,
   JSON_PRETTY_PRINT, JSON_PRETTY_PRINT,
@@ -318,12 +300,13 @@ static const int optsnum[] = {
   JSON_ENCODER_ARRAY_VECTOR,
 };
 
-/* */
-static const char *const d_opts[] = {
+/* Decoder PrettyWriter/Writer preset configurations */
+static const char *const decode_presets[] = {
   "default", "extended", nullptr
 };
 
-static const int d_optsnums[] = {
+/* decode_presets -> integer codes */
+static const int decode_presets_num[] = {
   JSON_DECODE_DEFAULT,
   JSON_DECODE_EXTENDED,
 };
@@ -357,10 +340,14 @@ static int make_table_type (lua_State *L, int idx, const char *meta, const char 
 }
 
 LUALIB_API int rapidjson_encode (lua_State *L) {
-  int top = lua_gettop(L);
-  int level = 0, indent = 0, state_idx = -1;
-  int flags = JSON_DEFAULT, depth = JSON_DEFAULT_DEPTH;
-  int parsemode = JSON_DECODE_DEFAULT;
+  const int top = lua_gettop(L);
+
+  int indent = 0; // Indentation character index
+  int level = 0; // Indentation character count
+  int state_idx = -1; // Stack index of function-supplied state/configuration table.
+  int flags = JSON_DEFAULT; // Encoding flags
+  int depth = JSON_DEFAULT_DEPTH; // Maximum nested-table/recursive depth.
+  int parsemode = JSON_DECODE_DEFAULT; // Parsing PrettyWriter/Writer mode (preset configuration)
   int decimals = LUA_NUMBER_FMT_LEN; // rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces;
 
   /* Parse default options */
@@ -386,7 +373,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
       lua_pushnil(L);
       while (lua_next(L, 2)) { /* [key, value] */
         int opt;
-        switch ((opt = optsnum[luaL_optcheckoption(L, -2, nullptr, opts, 0x0)])) {
+        switch ((opt = option_keys_num[luaL_optcheckoption(L, -2, nullptr, option_keys, 0)])) {
           case JSON_ENCODER_ARRAY_VECTOR:
           case JSON_LUA_NILL:
           case JSON_PRETTY_PRINT:
@@ -449,25 +436,13 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
 
       switch (parsemode) {
         case JSON_DECODE_EXTENDED: {
-          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-#if defined(LUA_RAPIDJSON_ALLOCATOR)
-            rapidjson::LuaAllocator,
-#else
-            rapidjson::CrtAllocator,
-#endif
-            rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>, RAPIDJSON_ALLOCATOR, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
           dowriting(writer);
           break;
         }
         case JSON_DECODE_DEFAULT:
         default: {
-          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-#if defined(LUA_RAPIDJSON_ALLOCATOR)
-            rapidjson::LuaAllocator
-#else
-            rapidjson::CrtAllocator
-#endif
-            > writer(s);
+          rapidjson::PrettyWriter<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>, RAPIDJSON_ALLOCATOR> writer(s);
           dowriting(writer);
           break;
         }
@@ -481,25 +456,13 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
 
       switch (parsemode) {
         case JSON_DECODE_EXTENDED: {
-          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-#if defined(LUA_RAPIDJSON_ALLOCATOR)
-            rapidjson::LuaAllocator,
-#else
-            rapidjson::CrtAllocator,
-#endif
-            rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
+          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>, RAPIDJSON_ALLOCATOR, rapidjson::WriteFlag::kWriteNanAndInfFlag> writer(s);
           dowriting(writer);
           break;
         }
         case JSON_DECODE_DEFAULT:
         default: {
-          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>,
-#if defined(LUA_RAPIDJSON_ALLOCATOR)
-            rapidjson::LuaAllocator
-#else
-            rapidjson::CrtAllocator
-#endif
-            > writer(s);
+          rapidjson::Writer<rapidjson::StringBuffer, rapidjson::UTF8<>, rapidjson::UTF8<>, RAPIDJSON_ALLOCATOR> writer(s);
           dowriting(writer);
           break;
         }
@@ -516,25 +479,32 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     lua_settop(L, top);
     lua_pushstring(L, e.what());
   }
+  catch (...) {
+    lua_settop(L, top);
+    lua_pushstring(L, "Unexpected exception");
+  }
+
   return lua_error(L);
 }
 
 LUALIB_API int rapidjson_decode (lua_State *L) {
-  int trailer = 0;
-  int nullarg = -1;
-  int objectarg = -1;
-  int arrayarg = -1;
-  int top = lua_gettop(L);
+  const int top = lua_gettop(L);
+
+  int trailer = 0; // First argument after the input string/length
+  int nullarg = -1; // Stack index of object that represents "null"
+  int objectarg = -1; // Stack index of "object" metatable
+  int arrayarg = -1; // Stack index of "array" metatable
   int parsemode = static_cast<int>(getregi(L, LUA_RAPIDJSON_REG_PRESET, JSON_DECODE_DEFAULT));
   lua_Integer flags = getregi(L, LUA_RAPIDJSON_REG_FLAGS, JSON_DEFAULT);
 
   size_t len = 0, position = 0;
   const char *contents = nullptr;
   switch (lua_type(L, 1)) {
-    case LUA_TNIL:
+    case LUA_TNIL: {
       len = 0;
       contents = nullptr;
       break;
+    }
     case LUA_TLIGHTUSERDATA: {
       luaL_checktype(L, 2, LUA_TNUMBER);
 
@@ -547,10 +517,11 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
     ** fix: similar to dkjson, attempt to coerce non-string types to strings.
     ** luaL_checklstring should throw an error when not possible
     */
-    default:
+    default: {
       trailer = 2;
       contents = luaL_checklstring(L, 1, &len);
       break;
+    }
   }
 
   if (len == 0) {  /* Explicitly handle empty string ... */
@@ -585,10 +556,11 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
         r = reader.Parse<rapidjson::ParseFlag::kParseFullPrecisionFlag
           | rapidjson::ParseFlag::kParseCommentsFlag
           | rapidjson::ParseFlag::kParseTrailingCommasFlag
+          | rapidjson::ParseFlag::kParseNanAndInfFlag
 #if defined(LUA_RAPIDJSON_COMPAT)
           | rapidjson::ParseFlag::kParseStopWhenDoneFlag
 #endif
-          | rapidjson::ParseFlag::kParseNanAndInfFlag>(s, handler);
+          >(s, handler);
         break;
       case JSON_DECODE_DEFAULT:
       default:
@@ -613,12 +585,8 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 #endif
     }
     else {
-#if defined(LUA_RAPIDJSON_COMPAT)
-      lua_pushinteger(L, 1 + static_cast<lua_Integer>(s.Tell())); /* Safe cast */
+      lua_pushinteger(L, 1 + static_cast<lua_Integer>(s.Tell()));
       return 2;
-#else
-      return 1;
-#endif
     }
   }
   catch (const rapidjson::LuaTypeException &e) {
@@ -636,6 +604,10 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
     return 3;
 #endif
   }
+  catch (...) {
+    lua_settop(L, top);
+    lua_pushstring(L, "Unexpected exception");
+  }
 
   return lua_error(L);
 }
@@ -643,7 +615,7 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 LUALIB_API int rapidjson_setoption (lua_State *L) {
   int opt;
   lua_Integer v;
-  switch ((opt = optsnum[luaL_checkoption(L, 1, nullptr, opts)])) {
+  switch ((opt = option_keys_num[luaL_checkoption(L, 1, nullptr, option_keys)])) {
     case JSON_ENCODER_ARRAY_VECTOR:
     case JSON_LUA_NILL:
     case JSON_PRETTY_PRINT:
@@ -673,8 +645,8 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
         setregi(L, LUA_RAPIDJSON_REG_MAXDEC, v);
       break;
     case JSON_DECODER_PRESET:
-      v = luaL_optcheckoption(L, 2, nullptr, d_opts, JSON_DECODE_DEFAULT);
-      setregi(L, LUA_RAPIDJSON_REG_PRESET, d_optsnums[v]);
+      v = luaL_optcheckoption(L, 2, nullptr, decode_presets, 0);
+      setregi(L, LUA_RAPIDJSON_REG_PRESET, decode_presets_num[v]);
       break;
     default:
       break;
@@ -685,7 +657,7 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
 LUALIB_API int rapidjson_getoption (lua_State *L) {
   int opt;
   lua_Integer flags = 0;
-  switch ((opt = optsnum[luaL_checkoption(L, 1, nullptr, opts)])) {
+  switch ((opt = option_keys_num[luaL_checkoption(L, 1, nullptr, option_keys)])) {
     case JSON_ENCODER_ARRAY_VECTOR:
     case JSON_LUA_NILL:
     case JSON_PRETTY_PRINT:
@@ -713,7 +685,7 @@ LUALIB_API int rapidjson_getoption (lua_State *L) {
     case JSON_DECODER_PRESET:
       flags = getregi(L, LUA_RAPIDJSON_REG_PRESET, JSON_DECODE_DEFAULT);
       if (JSON_DECODE_DEFAULT <= flags && flags <= JSON_DECODE_EXTENDED)
-        lua_pushstring(L, d_opts[flags]);
+        lua_pushstring(L, decode_presets[flags]);
       else
         lua_pushnil(L);
       break;
@@ -789,11 +761,7 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
 
   /* Create json.null reference */
   lua_getfield(L, -1, "null");
-#if defined(LUA_RAPIDJSON_STATIC_NIL)
-  nullref = luaL_ref(L, LUA_REGISTRYINDEX);
-#else
   setregi(L, LUA_RAPIDJSON_REG_NULL, luaL_ref(L, LUA_REGISTRYINDEX));
-#endif
 
   /* Register name globally for 5.1 */
 #if LUA_VERSION_NUM == 501
