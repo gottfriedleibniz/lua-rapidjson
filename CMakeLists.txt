@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.0 FATAL_ERROR)
 
-project(lua-rapidjson)
+project(lua-rapidjson CXX)
 IF (CMAKE_CXX_COMPILER MATCHES ".*clang")
     SET (CMAKE_COMPILER_IS_CLANGXX 1)
 ENDIF ()
@@ -36,11 +36,6 @@ ENDIF ()
 OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
 IF (LUA_RAPIDJSON_ALLOCATOR)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_ALLOCATOR)
-ENDIF ()
-
-OPTION (LUA_RAPIDJSON_STATIC_NIL "Store null reference in a static variable (no longer reentrant)" OFF)
-IF (LUA_RAPIDJSON_STATIC_NIL)
-    ADD_DEFINITIONS (-DLUA_RAPIDJSON_STATIC_NIL)
 ENDIF ()
 
 OPTION (LUA_COMPILED_AS_HPP "Library compiled for Lua with C++ linkage" OFF)
@@ -223,7 +218,7 @@ IF (WIN32)
 ENDIF ()
 
 IF (LINK_FLAGS)
-	TARGET_INCLUDE_DIRECTORIES (lua-rapidjson PRIVATE ${INCLUDE_DIRECTORIES})
+    TARGET_INCLUDE_DIRECTORIES (lua-rapidjson PRIVATE ${INCLUDE_DIRECTORIES})
     SET_TARGET_PROPERTIES (lua-rapidjson PROPERTIES LINK_FLAGS ${LINK_FLAGS})
 ENDIF ()
 
