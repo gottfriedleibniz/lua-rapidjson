@@ -59,49 +59,81 @@ namespace rapidjson {
   /// </summary>
   class LuaAllocator {
 private:
-    static thread_local lua_State *L;
-    static thread_local void *l_ud;  // Cached allocator state
-    static thread_local lua_Alloc l_alloc;
-    bool _singleton = false;
+    /// <summary>
+    /// Memory block contains a header that stores the active Lua allocator state
+    /// </summary>
+    struct lua_AllocHeader {
+      lua_Alloc alloc = nullptr;  // Allocation function;
+      void *ud = nullptr;  // Allocator userdata;
+      size_t size = 0;  // Size of segment
+
+      lua_AllocHeader() = default;
+      lua_AllocHeader(lua_State *L) {
+        alloc = lua_getallocf(L, &ud);
+      }
+    };
+
+    lua_State *L;
+    lua_AllocHeader cache;
 
 public:
     static const bool kNeedFree = true;
 
-    LuaAllocator() = default;
+    LuaAllocator() : L(nullptr) { }
+    LuaAllocator(lua_State *_L) : L(_L), cache(L) { }
+    ~LuaAllocator() {
+    }
 
     /// <summary>
-    /// Update the singleton fields with the allocator fields of the given Lua
-    /// state.
+    /// Have the Lua allocator create a block of "size + N" bytes with the
+    /// lua_AllocHeader padded to the front of the block.
     /// </summary>
-    LuaAllocator(lua_State *_L)
-      : _singleton(true) {
-      L = _L;
-      l_alloc = lua_getallocf(L, &l_ud);
-    }
-
-    ~LuaAllocator() {
-      if (_singleton) {
-        l_ud = nullptr;
-        l_alloc = nullptr;
-      }
-    }
-
-    void *Malloc(size_t size) {
-      if (l_alloc != nullptr && size)  //  behavior of malloc(0) is implementation defined.
-        return l_alloc(l_ud, nullptr, 0, size);
-      return nullptr;  // standardize to returning NULL.
-    }
-
     void *Realloc(void *originalPtr, size_t originalSize, size_t newSize) {
-      if (l_alloc != nullptr)
-        return l_alloc(l_ud, originalPtr, originalSize, newSize);
-      return nullptr;
+      lua_AllocHeader header;  // Active allocation header
+      void *result = nullptr;  // Result
+
+      void *origSegment = nullptr;  // If the original pointer is non-null, assume it has a packed header
+      if (originalPtr != nullptr) {
+        origSegment = reinterpret_cast<void *>(reinterpret_cast<char *>(originalPtr) - sizeof(lua_AllocHeader));
+        header = *reinterpret_cast<lua_AllocHeader *>(origSegment);
+      }
+      else {
+        if (L == nullptr)  // @TODO: Throw an exception; invalid Lua state and no allocator exists.
+          return nullptr;
+
+        header.size = 0;
+        header.ud = cache.ud;
+        header.alloc = cache.alloc;
+      }
+
+      // Per Lua: When nsize is zero, the allocator must behave like free and then return NULL.
+      const size_t newSegSize = newSize > 0 ? (newSize + sizeof(lua_AllocHeader)) : 0;
+      if (origSegment != nullptr || newSegSize != 0) {
+        void *newSegment = header.alloc(header.ud, origSegment, header.size, newSegSize);
+        if (newSegment != nullptr) {
+          header.size = newSegSize;
+
+          // Append header to beginning of allocated block
+          *(reinterpret_cast<lua_AllocHeader *>(newSegment)) = header;
+
+          // Move to the beginning of the writable/readable memory segments.
+          result = reinterpret_cast<void *>(reinterpret_cast<char *>(newSegment) + sizeof(lua_AllocHeader));
+        }
+      }
+
+      ((void)(originalSize));  // Padded into header
+      return result;
     }
 
-    /* When nsize is zero, the allocator must behave like free and then return NULL. */
-    static void Free(void *ptr) {
-      if (l_alloc != nullptr)
-        l_alloc(l_ud, ptr, 0, 0);
+    void RAPIDJSON_FORCEINLINE *Malloc(size_t size) {
+      return Realloc(nullptr, 0, size);
+    }
+
+    static RAPIDJSON_FORCEINLINE void Free(void *ptr) {
+      if (ptr != nullptr) {
+        LuaAllocator allocator;  // So long as "originalPtr" is non-null
+        allocator.Realloc(ptr, 0, 0);
+      }
     }
   };
 
@@ -119,7 +151,7 @@ public:
   /// <summary>
   /// A JSON encoding/decoding error.
   ///
-  /// TODO: Consider placing the exception message on top of the Lua stack,
+  /// @TODO: Consider placing the exception message on top of the Lua stack,
   /// ensuring that fields (i.e., strings) in the exception do not leak.
   /// </summary>
   class LuaException : public std::exception {
@@ -176,8 +208,4 @@ public:
       return "LuaTypeException";
     }
   };
-
-  thread_local lua_State *LuaAllocator::L = nullptr;
-  thread_local lua_Alloc LuaAllocator::l_alloc = nullptr;
-  thread_local void *LuaAllocator::l_ud = nullptr;
 }

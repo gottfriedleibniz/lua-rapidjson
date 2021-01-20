@@ -28,7 +28,7 @@ ELSEIF (LUA_RAPIDJSON_ROUND_FLOAT)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_ROUND_FLOAT)
 ENDIF ()
 
-OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
+OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" ON)
 IF (LUA_RAPIDJSON_ALLOCATOR)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_ALLOCATOR)
 ENDIF ()

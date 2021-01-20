@@ -12,6 +12,7 @@
 #include <vector>
 #include <math.h>
 
+#include <rapidjson/internal/stack.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
@@ -161,11 +162,17 @@ static inline int json_isinteger (lua_State *L, int idx) {
   #define LUA_RAPIDJSON_DEFAULT_DEPTH 32
 #endif
 
+/* Default character encoding */
+#define LUA_RAPIDJSON_SOURCE rapidjson::UTF8<>
+#define LUA_RAPIDJSON_TARGET rapidjson::UTF8<>
+
 /* Default allocator class */
 #if defined(LUA_RAPIDJSON_ALLOCATOR)
   #define RAPIDJSON_ALLOCATOR rapidjson::LuaAllocator
+  #define RAPIDJSON_ALLOCATOR_INIT(L, NAME) rapidjson::LuaAllocator NAME(L)
 #else
   #define RAPIDJSON_ALLOCATOR rapidjson::CrtAllocator
+  #define RAPIDJSON_ALLOCATOR_INIT(L, NAME) rapidjson::CrtAllocator NAME
 #endif
 
 /*
@@ -426,7 +433,8 @@ namespace LuaSAX {
   }
 
   /** SAX Handler: https://rapidjson.org/classrapidjson_1_1_handler.html */
-  struct Reader {
+  template<typename StackAllocator>
+  struct Decoder {
 private:
     /// <summary>
     /// Structure for populating tables from JSON arrays and maps.
@@ -477,20 +485,20 @@ private:
     };
 
     lua_State *L;
+    rapidjson::internal::Stack<StackAllocator> &stack_;  // Nested table population stack
     lua_Integer flags;
     int nullarg;  // Stack index of object that represents "null"
     int objectarg;  // Stack index of "object" metatable
     int arrayarg;  // Stack index of "array" metatable
-    std::vector<Ctx> stack_;  // Nested table population stack
     Ctx context_;  // Current table being populated
 
 public:
-    explicit Reader(lua_State *_L, lua_Integer _flags = 0, int _nullidx = -1, int _oidx = -1, int _aidx = -1)
-      : L(_L), flags(_flags), nullarg(_nullidx), objectarg(_oidx), arrayarg(_aidx) {
+    explicit Decoder(lua_State *_L, rapidjson::internal::Stack<StackAllocator> &_stack, lua_Integer _flags = 0, int _nullidx = -1, int _oidx = -1, int _aidx = -1)
+      : L(_L), stack_(_stack), flags(_flags), nullarg(_nullidx), objectarg(_oidx), arrayarg(_aidx) {
 #if LUA_RAPIDJSON_DEFAULT_DEPTH <= 64  // In case DEFAULT_DEPTH is increased
-      stack_.reserve(LUA_RAPIDJSON_DEFAULT_DEPTH >> 1);
+      stack_.template Reserve<Ctx>(LUA_RAPIDJSON_DEFAULT_DEPTH >> 1);
 #else
-      stack_.reserve(1 << 4);
+      stack_.template Reserve<Ctx>(1 << 4);
 #endif
     }
 
@@ -557,7 +565,7 @@ public:
     LUA_JSON_HANDLE(RawNumber, const char *str, rapidjson::SizeType length, bool copy) {
       JSON_UNUSED(copy);
 
-      // TODO: Rewrite using lua_stringtonumber >= 503
+      // @TODO: Rewrite using lua_stringtonumber >= 503
       lua_getglobal(L, "tonumber");  // [..., tonumber]
       lua_pushlstring(L, str, length);  // [..., tonumber, str]
       lua_call(L, 1, 1);  // [..., number]
@@ -584,7 +592,7 @@ public:
           luaL_getmetatable(L, LUA_RAPIDJSON_REG_OBJECT);
         lua_setmetatable(L, -2);
 
-        stack_.push_back(context_);
+        *stack_.template Push<Ctx>(1) = context_;
         context_ = Ctx::Object();
         return true;
 #if !defined(LUA_RAPIDJSON_UNSAFE)
@@ -602,8 +610,7 @@ public:
     LUA_JSON_HANDLE(EndObject, rapidjson::SizeType memberCount) {
       JSON_UNUSED(memberCount);
 
-      context_ = stack_.back();
-      stack_.pop_back();
+      context_ = *stack_.template Pop<Ctx>(1);
       LUA_JSON_SUBMIT();
       return true;
     }
@@ -619,7 +626,7 @@ public:
           luaL_getmetatable(L, LUA_RAPIDJSON_REG_ARRAY);
         lua_setmetatable(L, -2);
 
-        stack_.push_back(context_);
+        *stack_.template Push<Ctx>(1) = context_;
         context_ = Ctx::Array();
         return true;
 #if !defined(LUA_RAPIDJSON_UNSAFE)
@@ -632,18 +639,19 @@ public:
       lua_assert(elementCount == context_.index);
       JSON_UNUSED(elementCount);
 
-      context_ = stack_.back();
-      stack_.pop_back();
+      context_ = *stack_.template Pop<Ctx>(1);
       LUA_JSON_SUBMIT();
       return true;
     }
   };
 
-  class Writer {
+  class Encoder {
 private:
     lua_Integer flags;  // Configuration flags
     int max_depth;  // Maximum recursive depth
     int state_idx;  // (Positive) stack index of "state" table
+
+    // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
     std::vector<LuaSAX::Key> &order;  // Key-ordering list
 
     /// <summary>
@@ -765,7 +773,7 @@ private:
     }
 
 public:
-    Writer(lua_Integer _flags, int _maxdepth, int _state, std::vector<LuaSAX::Key> &_order)
+    Encoder(lua_Integer _flags, int _maxdepth, int _state, std::vector<LuaSAX::Key> &_order)
       : flags(_flags), max_depth(_maxdepth), state_idx(_state), order(_order) {
     }
 
@@ -931,6 +939,7 @@ public:
 
         /* __jsonorder is a table or a function that returns a table */
         if (lua_type(L, -1) == LUA_TTABLE) {
+          // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
           std::vector<LuaSAX::Key> meta_order, unorder;
           populate_key_vector(L, -1, meta_order);
           lua_settop(L, top);  // & Metafield
@@ -944,6 +953,7 @@ public:
         }
       }
       else if ((flags & JSON_SORT_KEYS) != 0 || order.size() != 0) {  // Generate a key order
+        // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
         std::vector<LuaSAX::Key> unorder;  // All keys not contained in 'order'
         populate_unordered_vector(L, idx, order, unorder);
         if (flags & JSON_SORT_KEYS)
