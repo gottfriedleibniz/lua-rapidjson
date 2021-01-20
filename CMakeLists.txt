@@ -93,6 +93,7 @@ IF (UNIX)
         -Wno-comment
         -Wno-unused-function
         -Wno-array-bounds
+        -Wno-shadow
 
         #-Wconversion
         #-Wsign-conversion
@@ -134,7 +135,7 @@ IF (UNIX)
 ELSE(UNIX)
     IF (WIN32)
         SET (PLAT "win32")
-        ADD_DEFINITIONS (-DLUA_BUILD_AS_DLL -DLUA_LIB -D_CRT_SECURE_NO_WARNINGS)
+        ADD_DEFINITIONS (-DLUA_BUILD_AS_DLL -D_CRT_SECURE_NO_WARNINGS)
         ADD_COMPILE_OPTIONS ( /W4 )
     ELSE(WIN32)
         SET (PLAT "unsupported")

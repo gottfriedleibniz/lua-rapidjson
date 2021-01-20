@@ -35,9 +35,9 @@ namespace rapidjson {
       void Flush() { RAPIDJSON_ASSERT(false); }
       size_t PutEnd(Ch *) { RAPIDJSON_ASSERT(false); return 0; }
 
-      const Ch *src_; //!< Current read position.
-      const Ch *head_; //!< Original head of the string.
-      size_t count_; //!< Original head of the string.
+      const Ch *src_;  //!< Current read position.
+      const Ch *head_;  //!< Original head of the string.
+      size_t count_;  //!< Original head of the string.
     };
 
     //! String stream with UTF8 encoding.
@@ -60,7 +60,7 @@ namespace rapidjson {
   class LuaAllocator {
 private:
     static thread_local lua_State *L;
-    static thread_local void *l_ud; /* Cache allocator state */
+    static thread_local void *l_ud;  // Cached allocator state
     static thread_local lua_Alloc l_alloc;
     bool _singleton = false;
 
@@ -128,8 +128,8 @@ private:
     LuaException &operator=(const LuaException &other);  // prevent
 
 public:
-    LuaException(const char* s) : _msg(s) { }
-    LuaException(const std::string& s) : _msg(s) { }
+    LuaException(const char *s) : _msg(s) { }
+    LuaException(const std::string &s) : _msg(s) { }
     LuaException(const LuaException &other) : _msg(other._msg) { }
 
     const char *what() const noexcept override {

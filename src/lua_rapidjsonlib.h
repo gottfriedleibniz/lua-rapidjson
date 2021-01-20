@@ -34,6 +34,10 @@
   #define LUAMOD_API LUALIB_API
 #endif
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /*
 **  json.encode (object [, state])
 **    Create a string representing the object. "Object" can be a table, a
@@ -50,8 +54,8 @@
 **      output. If an object has keys which are not in this array they are
 **      written after the sorted keys.
 **
-**      level: This is the initial level of indentation used when indent is set.
-**      For each level two spaces are added. When absent it is set to 0.
+**      indent_amt: This is the initial level of indentation used when indent is
+**      set. For each level two spaces are added; when absent it is set to 0.
 **
 **      [DEPRECATED]
 **      buffer: an array to store the strings for the result so they can be
@@ -111,13 +115,13 @@ LUALIB_API int rapidjson_decode(lua_State *L);
 **  empty_table_as_array - Empty tables encoded as array.
 **  with_hole - Allow tables to be encoded as arrays iff all keys are positive
 **    integers, inserting "nil"s when encoding to satisfy the array type.
-**  nesting - Push json.null instead of throwing a LUA_DKJSON_DEPTH_LIMIT error
-**    when the encoding depth exceeds 'max_depth'.
+**  nesting - Push json.null instead of throwing a LUA_RAPIDJSON_ERROR_DEPTH_LIMIT
+**    error when the encoding depth exceeds 'max_depth'.
 **
 ** INTEGER:
 **  max_depth - Maximum table recursion depth
-**  level - Number of indent characters for each indentation level.
 **  indent - Index for indentation (' ', '\t', '\n', '\r').
+**  indent_amt - Number of indent characters for each indentation level.
 **  decimal_count - the maximum number of decimal places for double output.
 */
 LUALIB_API int rapidjson_setoption (lua_State *L);
@@ -131,7 +135,11 @@ LUALIB_API int rapidjson_isobject (lua_State *L);
 LUALIB_API int rapidjson_array (lua_State *L);
 LUALIB_API int rapidjson_isarray (lua_State *L);
 
-/* */
-LUAMOD_API int luaopen_rapidjson (lua_State *L);
+#define LUA_RAPIDJSON_JSON_LIBNAME "json"
+LUAMOD_API int (luaopen_rapidjson) (lua_State *L);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
