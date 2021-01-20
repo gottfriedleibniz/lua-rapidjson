@@ -34,8 +34,12 @@ IF (LUA_RAPIDJSON_ALLOCATOR)
 ENDIF ()
 
 OPTION (LUA_COMPILED_AS_HPP "Library compiled for Lua with C++ linkage" OFF)
+OPTION (LUA_USE_LONGJMP_HPP "C++ compiled Lua still uses longjmp/setjmp for exception handling" OFF)
 IF (LUA_COMPILED_AS_HPP)
     ADD_DEFINITIONS (-DLUA_COMPILED_AS_HPP)
+    IF (LUA_USE_LONGJMP_HPP)
+        ADD_DEFINITIONS (-DLUA_USE_LONGJMP_HPP)
+    ENDIF ()    
 ENDIF ()
 
 OPTION (LUA_RAPIDJSON_EXPERIMENTAL "Experimental performance tweaks" OFF)

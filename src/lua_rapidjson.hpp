@@ -130,6 +130,15 @@ static inline int json_isinteger (lua_State *L, int idx) {
   #define json_gettable(L, I) (lua_gettable((L), (I)), lua_type((L), -1))
 #endif
 
+/* Lua 54 changed the definition of lua_newuserdata */
+#if LUA_VERSION_NUM >= 504
+  #define json_newuserdata(L, s) lua_newuserdatauv((L), (s), 0)
+#elif LUA_VERSION_NUM >= 501 && LUA_VERSION_NUM <= 503
+  #define json_newuserdata(L, s) lua_newuserdata((L), (s))
+#else
+  #error unsupported Lua version
+#endif
+
 /* }================================================================== */
 
 /*
@@ -289,18 +298,6 @@ LUA_RAPIDJSON_API bool has_json_type (lua_State *L, int idx, bool *is_array);
 */
 LUA_RAPIDJSON_API bool table_is_json_array (lua_State *L, int idx, lua_Integer flags, size_t *array_length);
 
-/*
-** A try/catch extension of luaL_error: "raises an error. The error message
-** format is given by fmt plus any extra arguments, following the same rules of
-** lua_pushfstring".
-**
-** However, instead of calling LUAI_THROW, which may be a "longjmp", this
-** function will throw a rapidjson::LuaException so any privately allocated
-** data by rapidjson, e.g., see rapidjson::CrtAllocator, can be properly
-** deallocated during stack-unwinding.
-*/
-LUA_RAPIDJSON_API int json_error (lua_State *L, const char *message);
-
 /* }================================================================== */
 
 /*
@@ -325,6 +322,7 @@ LUA_RAPIDJSON_API int json_error (lua_State *L, const char *message);
 #define JSON_ARRAY_WITH_HOLES   0x40000 /* Encode all tables with positive integer keys as arrays. */
 
 /* Encoder/Decoder Options (reserved bits) */
+#define JSON_ENCODER_HANDLER    0x2000000 /* Exception Handled, reserved*/
 #define JSON_DECODER_PRESET     0x4000000 /* Preset flags for decoding */
 #define JSON_ENCODER_DECIMALS   0x8000000 /* The maximum number of decimal places for double output. */
 #define JSON_ENCODER_INDENT     0x10000000 /* Pretty: Index for character of indentation: (' ', '\\t', '\\n', '\\r'). */
@@ -332,7 +330,7 @@ LUA_RAPIDJSON_API int json_error (lua_State *L, const char *message);
 #define JSON_ENCODER_MAX_DEPTH  0x40000000 /* Maximum depth of a table. */
 #define JSON_TABLE_KEY_ORDER    0x80000000
 
-#define JSON_DEFAULT (JSON_LUA_NULL | JSON_ARRAY_EMPTY | JSON_ARRAY_WITH_HOLES)
+#define JSON_DEFAULT (JSON_LUA_NULL | JSON_ARRAY_EMPTY | JSON_ARRAY_WITH_HOLES | JSON_NAN_AND_INF)
 
 namespace LuaSAX {
   /// <summary>
@@ -649,7 +647,7 @@ public:
 private:
     lua_Integer flags;  // Configuration flags
     int max_depth;  // Maximum recursive depth
-    int state_idx;  // (Positive) stack index of "state" table
+    int error_handler_idx;  // (Positive) stack index of the error handling function
 
     // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
     std::vector<LuaSAX::Key> &order;  // Key-ordering list
@@ -751,30 +749,27 @@ private:
     template<typename Writer>
     bool handle_exception(lua_State *L, Writer &writer, int idx, int depth, const char *reason, const char **output) const {
       bool result = false;
-      if (state_idx > 0 && lua_istable(L, state_idx)) {
+      if (error_handler_idx > 0) {
         json_checkstack(L, 3);
-        if (json_getfield(L, state_idx, LUA_RAPIDJSON_STATE_EXCEPTION) == LUA_TFUNCTION) {  // [..., function]
-          lua_pushstring(L, reason);  // [..., function, reason]
-          lua_pushvalue(L, json_rel_index(idx, 2));  // [..., function, reason, value]
-          lua_call(L, 2, 2);  // [..., r_value, r_reason]
-          if (lua_isnil(L, -2))
-            *output = luaL_optstring(L, -1, nullptr);
-          else {
-            encodeValue(L, writer, -2, depth + 1);
-            result = true;
-          }
-          lua_pop(L, 2);  // [...]
-        }
+        lua_pushvalue(L, error_handler_idx);  // [..., function]
+        lua_pushstring(L, reason);  // [..., function, reason]
+        lua_pushvalue(L, json_rel_index(idx, 2));  // [..., function, reason, value]
+        lua_call(L, 2, 2);  // [..., r_value, r_reason]
+
+        if (lua_isnil(L, -2))
+          *output = luaL_optstring(L, -1, nullptr);
         else {
-          lua_pop(L, 1);  // [...]
+          encodeValue(L, writer, -2, depth + 1);
+          result = true;
         }
+        lua_pop(L, 2);  // [...]
       }
       return result;
     }
 
 public:
-    Encoder(lua_Integer _flags, int _maxdepth, int _state, std::vector<LuaSAX::Key> &_order)
-      : flags(_flags), max_depth(_maxdepth), state_idx(_state), order(_order) {
+    Encoder(lua_Integer _flags, int _maxdepth, int _error_handler_idx, std::vector<LuaSAX::Key> &_order)
+      : flags(_flags), max_depth(_maxdepth), error_handler_idx(_error_handler_idx), order(_order) {
     }
 
 #if defined(LUA_RAPIDJSON_ROUND_FLOAT)
@@ -840,7 +835,7 @@ public:
           size_t len;
           const char *s = lua_tolstring(L, idx, &len);
           if (!writer.String(s, static_cast<rapidjson::SizeType>(len)))
-            json_error(L, "error encoding string");
+            throw rapidjson::LuaException("error encoding string");
           break;
         }
         case LUA_TTABLE: {
@@ -863,7 +858,7 @@ public:
             const char *output = nullptr;
             if (!handle_exception(L, writer, idx, depth, LUA_RAPIDJSON_ERROR_TYPE, &output)) {
               if (output)
-                json_error(L, output);
+                throw rapidjson::LuaException(output);
               else
                 throw rapidjson::LuaTypeException(lua_type(L, idx), rapidjson::LuaTypeException::UnsupportedType);
             }
@@ -895,17 +890,17 @@ public:
           size_t len;
           const char *s = lua_tolstring(L, -1, &len);
           if (!writer.RawValue(s, len, rapidjson::Type::kObjectType))
-            json_error(L, "error encoding raw value");
+            throw rapidjson::LuaException("error encoding raw value");
         }
         else {
           result = false;
-          json_error(L, "Invalid " LUA_RAPIDJSON_META_TOJSON " result");
+          throw rapidjson::LuaException("Invalid " LUA_RAPIDJSON_META_TOJSON " result");
         }
         lua_pop(L, 1);  // [...]
       }
       else {
         result = false;
-        json_error(L, "Invalid " LUA_RAPIDJSON_META_TOJSON " function");
+        throw rapidjson::LuaException("Invalid " LUA_RAPIDJSON_META_TOJSON " function");
       }
       return result;
     }
@@ -919,7 +914,7 @@ public:
           if (flags & JSON_NESTING_NULL)
             writer.Null();
           else
-            json_error(L, output != nullptr ? output : LUA_RAPIDJSON_ERROR_DEPTH_LIMIT);
+            throw rapidjson::LuaException((output != nullptr) ? output : LUA_RAPIDJSON_ERROR_DEPTH_LIMIT);
         }
         return;
       }
@@ -948,8 +943,7 @@ public:
           encodeOrderedObject(L, writer, idx, depth, meta_order, unorder);
         }
         else {
-          json_error(L, "Invalid " LUA_RAPIDJSON_META_ORDER " result");
-          return;
+          throw rapidjson::LuaException("Invalid " LUA_RAPIDJSON_META_ORDER " result");
         }
       }
       else if ((flags & JSON_SORT_KEYS) != 0 || order.size() != 0) {  // Generate a key order
