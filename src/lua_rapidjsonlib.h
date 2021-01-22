@@ -107,22 +107,34 @@ LUALIB_API int rapidjson_decode(lua_State *L);
 
 /*
 ** BOOLEAN:
-**  indent - When indent (a boolean) is set, the created string will contain
-**    newlines and indentations. Otherwise it will be one long line.
-**  sort_keys -
-**  single_line - Format arrays on a single line.
+**  indent - Created string will contain newlines and indentations.
+**  pretty - Alias of "indent".
+**  sort_keys - Sort keys of a table prior to encoding.
+**  null - If enabled use lua_pushnil, otherwise the json.null sentinel.
+**  nesting - Write null instead of throwing a LUA_RAPIDJSON_ERROR_DEPTH_LIMIT
+**            error when the encoding depth exceeds 'max_depth'.
 **  unsigned - Encode integers as unsigned integers/values.
+**  nan - Allow writing of Infinity, -Infinity and NaN.
+**  inf - Alias of "nan".
+**  bit32 - Encode integers as 32-bit values.
+**  lua_format_float - Use sprintf instead of rapidjson's native Grisu2.
+**  lua_round_float - Massage Grisu2 by rounding at maxDecimalsPlaces.
+**  single_line - Format arrays on a single line.
 **  empty_table_as_array - Empty tables encoded as array.
 **  with_hole - Allow tables to be encoded as arrays iff all keys are positive
-**    integers, inserting "nil"s when encoding to satisfy the array type.
-**  nesting - Push json.null instead of throwing a LUA_RAPIDJSON_ERROR_DEPTH_LIMIT
-**    error when the encoding depth exceeds 'max_depth'.
+**              integers, inserting "nil"s when encoding to satisfy the array
+**              type.
 **
 ** INTEGER:
 **  max_depth - Maximum table recursion depth
-**  indent - Index for indentation (' ', '\t', '\n', '\r').
-**  indent_amt - Number of indent characters for each indentation level.
+**  indent_char - Index for indentation (0 = ' ', 1 = '\t', 2 = '\n', 3 = '\r').
+**  indent_count - Number of indent characters for each indentation level.
+**  level - Alias of "indent_count".
 **  decimal_count - the maximum number of decimal places for double output.
+**
+** STRING:
+**  decoder_preset - ["default", "extended"] - Preset parsing configuration.
+**    "extended" enables all fields (see rapidjson::ParseFlag).
 */
 LUALIB_API int rapidjson_setoption (lua_State *L);
 LUALIB_API int rapidjson_getoption (lua_State *L);

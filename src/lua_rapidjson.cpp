@@ -238,6 +238,9 @@ static const char *const option_keys[] = {
   "nesting",
   "unsigned",
   "nan", "inf",
+  "bit32",
+  "lua_format_float",
+  "lua_round_float",
   "single_line",
   "empty_table_as_array",
   "with_hole",
@@ -253,13 +256,16 @@ static const char *const option_keys[] = {
 
 /* option_keys -> integer codes */
 static const lua_Integer option_keys_num[] = {
-  0x0, /* RESERVED */
+  JSON_OPTION_RESERVED, /* RESERVED */
   JSON_PRETTY_PRINT, JSON_PRETTY_PRINT,
   JSON_SORT_KEYS,
   JSON_LUA_NULL,
   JSON_NESTING_NULL,
   JSON_UNSIGNED_INTEGERS,
   JSON_NAN_AND_INF, JSON_NAN_AND_INF,
+  JSON_ENCODE_INT32,
+  JSON_LUA_DTOA,
+  JSON_LUA_GRISU,
   JSON_ARRAY_SINGLE_LINE,
   JSON_ARRAY_EMPTY,
   JSON_ARRAY_WITH_HOLES,
@@ -547,7 +553,8 @@ struct DecoderData {
       default:
         result = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags
           | rapidjson::ParseFlag::kParseStopWhenDoneFlag
-          | rapidjson::ParseFlag::kParseTrailingCommasFlag>(s, decoder);
+          | rapidjson::ParseFlag::kParseTrailingCommasFlag
+          | rapidjson::ParseFlag::kParseNanAndInfFlag>(s, decoder);
         break;
       }
     }
@@ -662,6 +669,9 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
         case JSON_LUA_NULL:
         case JSON_UNSIGNED_INTEGERS:
         case JSON_NAN_AND_INF:
+        case JSON_ENCODE_INT32:
+        case JSON_LUA_DTOA:
+        case JSON_LUA_GRISU:
         case JSON_ARRAY_SINGLE_LINE:
         case JSON_ARRAY_EMPTY:
         case JSON_ARRAY_WITH_HOLES:
@@ -871,6 +881,9 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
     case JSON_LUA_NULL:
     case JSON_UNSIGNED_INTEGERS:
     case JSON_NAN_AND_INF:
+    case JSON_ENCODE_INT32:
+    case JSON_LUA_DTOA:
+    case JSON_LUA_GRISU:
     case JSON_ARRAY_SINGLE_LINE:
     case JSON_ARRAY_EMPTY:
     case JSON_ARRAY_WITH_HOLES: {
@@ -917,6 +930,9 @@ LUALIB_API int rapidjson_getoption (lua_State *L) {
     case JSON_LUA_NULL:
     case JSON_UNSIGNED_INTEGERS:
     case JSON_NAN_AND_INF:
+    case JSON_ENCODE_INT32:
+    case JSON_LUA_DTOA:
+    case JSON_LUA_GRISU:
     case JSON_ARRAY_SINGLE_LINE:
     case JSON_ARRAY_EMPTY:
     case JSON_ARRAY_WITH_HOLES:
@@ -1006,7 +1022,6 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
     { "isobject", rapidjson_isobject },
     { "isarray", rapidjson_isarray },
     { "use_lpeg", rapidjson_use_lpeg },
-    { "lua_round", nullptr },
     /* library details */
     { "_NAME", nullptr },
     { "_VERSION", nullptr },
@@ -1050,11 +1065,6 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
   lua_pushliteral(L, LUA_RAPIDJSON_VERSION); lua_setfield(L, -2, "_VERSION");
   lua_pushliteral(L, LUA_RAPIDJSON_COPYRIGHT); lua_setfield(L, -2, "_COPYRIGHT");
   lua_pushliteral(L, LUA_RAPIDJSON_DESCRIPTION); lua_setfield(L, -2, "_DESCRIPTION");
-#if defined(LUA_RAPIDJSON_LUA_FLOAT)
-  lua_pushboolean(L, 1); lua_setfield(L, -2, "lua_round");
-#else
-  lua_pushboolean(L, 0); lua_setfield(L, -2, "lua_round");
-#endif
 
   /* Register name globally for 5.1 */
 #if LUA_VERSION_NUM == 501

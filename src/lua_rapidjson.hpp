@@ -231,7 +231,6 @@ static inline int json_isinteger (lua_State *L, int idx) {
 **
 ** Based upon: lobject.tostringbuff
 */
-#if defined(LUA_RAPIDJSON_LUA_FLOAT)
 static const char *lua_dtoa(char *s, size_t n, double value) {
   const char *end = nullptr;
 
@@ -250,7 +249,26 @@ static const char *lua_dtoa(char *s, size_t n, double value) {
   }
   return end;
 }
+
+#define _EXP2(a, b) a##b
+#define EXP(digits) _EXP2(1##E, digits)
+
+/*
+** Massage how Grisu (rapidjson::internal::dtoa) manages inexact IEEE floats
+** for smaller values by explicitly rounding them at some decimal point.
+*/
+static inline double lua_grisuRound(double d) {
+  if ((std::numeric_limits<double>::max() / EXP(LUA_NUMBER_FMT_LEN)) <= d)
+    return d;  // A quick hack to avoid handling overflow
+
+#if __cplusplus <= 199711L
+    double e = d * EXP(LUA_NUMBER_FMT_LEN);
+    e = (e < 0) ? static_cast<double>(long(e - 0.5)) : static_cast<double>(long(e + 0.5));  // round
+    return e / EXP(LUA_NUMBER_FMT_LEN);
+#else
+    return std::round(d * EXP(LUA_NUMBER_FMT_LEN)) / EXP(LUA_NUMBER_FMT_LEN);
 #endif
+}
 
 /* }================================================================== */
 
@@ -309,12 +327,18 @@ LUA_RAPIDJSON_API bool table_is_json_array (lua_State *L, int idx, lua_Integer f
 /** SAX Handler: https://rapidjson.org/classrapidjson_1_1_handler.html */
 
 /* Encoder/Decoder Flags */
+#define JSON_OPTION_RESERVED    0x0
 #define JSON_PRETTY_PRINT       0x01 /* Created string will contain newlines and indentations */
 #define JSON_SORT_KEYS          0x02 /* Sort keys of a table */
 #define JSON_LUA_NULL           0x04 /* If enabled use lua_pushnil, otherwise the json.null sentinel */
 #define JSON_NESTING_NULL       0x08 /* Push json.null() instead of throwing a LUA_RAPIDJSON_ERROR_DEPTH_LIMIT error */
 #define JSON_UNSIGNED_INTEGERS  0x10 /* Encode integers as unsigned values */
 #define JSON_NAN_AND_INF        0x20 /* Allow writing of Infinity, -Infinity and NaN. */
+#define JSON_ENCODE_INT32       0x40 /* Encode integers as 32-bit */
+
+/* Floating Point Encoding */
+#define JSON_LUA_DTOA           0x100 /* Use sprintf instead of rapidjson's native Grisu2 implementation */
+#define JSON_LUA_GRISU          0x200 /* Massage Grisu2 by rounding at maxDecimalsPlaces */
 
 /* Array/Table Flags */
 #define JSON_ARRAY_SINGLE_LINE  0x10000 /* Enable kFormatSingleLineArray */
@@ -330,7 +354,14 @@ LUA_RAPIDJSON_API bool table_is_json_array (lua_State *L, int idx, lua_Integer f
 #define JSON_ENCODER_MAX_DEPTH  0x40000000 /* Maximum depth of a table. */
 #define JSON_TABLE_KEY_ORDER    0x80000000
 
-#define JSON_DEFAULT (JSON_LUA_NULL | JSON_ARRAY_EMPTY | JSON_ARRAY_WITH_HOLES | JSON_NAN_AND_INF)
+/* Additional default options if 32bit compilation is enabled */
+#if defined(LUA_RAPIDJSON_BIT32)
+  #define JSON_DEFAULT_BIT32 JSON_ENCODE_INT32
+#else
+  #define JSON_DEFAULT_BIT32 JSON_OPTION_RESERVED
+#endif
+
+#define JSON_DEFAULT (JSON_LUA_NULL | JSON_ARRAY_EMPTY | JSON_ARRAY_WITH_HOLES | JSON_NAN_AND_INF | JSON_DEFAULT_BIT32)
 
 namespace LuaSAX {
   /// <summary>
@@ -682,13 +713,13 @@ private:
         }
 
         char buffer[MAXNUMBER2STR + 2] = { 0 };
-#if defined(LUA_RAPIDJSON_LUA_FLOAT)
-        const char *end = lua_dtoa(buffer, MAXNUMBER2STR, d);
-#elif defined(LUA_RAPIDJSON_ROUND_FLOAT)
-        const char *end = rapidjson::internal::dtoa(luaRoundDecimal(d), buffer, writer.GetMaxDecimalPlaces());
-#else
-        const char *end = rapidjson::internal::dtoa(d, buffer, writer.GetMaxDecimalPlaces());
-#endif
+        const char *end = buffer;
+        if (flags & JSON_LUA_DTOA)
+          end = lua_dtoa(buffer, MAXNUMBER2STR, d);
+        else {
+          const double _d = (flags & JSON_LUA_GRISU) ? lua_grisuRound(d) : d;
+          end = rapidjson::internal::dtoa(_d, buffer, writer.GetMaxDecimalPlaces());
+        }
         return writer.Key(buffer, static_cast<rapidjson::SizeType>(end - buffer));
       }
       return writer.Key(key.data.s.key, static_cast<rapidjson::SizeType>(key.data.s.len));
@@ -772,17 +803,6 @@ public:
       : flags(_flags), max_depth(_maxdepth), error_handler_idx(_error_handler_idx), order(_order) {
     }
 
-#if defined(LUA_RAPIDJSON_ROUND_FLOAT)
-    #define _EXP2(a, b) a##b
-    #define EXP(digits) _EXP2(1##E, digits)
-    static RAPIDJSON_FORCEINLINE double luaRoundDecimal(double d) {
-      if ((std::numeric_limits<double>::max() / EXP(LUA_NUMBER_FMT_LEN)) <= d)
-        return d;  // A quick hack to avoid handling overflow
-
-      return std::round(d * EXP(LUA_NUMBER_FMT_LEN)) / EXP(LUA_NUMBER_FMT_LEN);
-    }
-#endif
-
     template<typename Writer>
     void encodeValue(lua_State *L, Writer &writer, int idx, int depth = 0) const {
       switch (lua_type(L, idx)) {
@@ -794,38 +814,35 @@ public:
           break;
         case LUA_TNUMBER: {
           if (json_isinteger(L, idx)) {
-#if defined(LUA_RAPIDJSON_BIT32)
-            if (flags & JSON_UNSIGNED_INTEGERS)
-              writer.Uint(static_cast<unsigned>(lua_tointeger(L, idx)));
-            else
-              writer.Int(static_cast<int>(lua_tointeger(L, idx)));
-#else
-            if (flags & JSON_UNSIGNED_INTEGERS)
-              writer.Uint64(static_cast<uint64_t>(lua_tointeger(L, idx)));
-            else
-              writer.Int64(static_cast<int64_t>(lua_tointeger(L, idx)));
-#endif
+            if (flags & JSON_ENCODE_INT32) {
+              if (flags & JSON_UNSIGNED_INTEGERS)
+                writer.Uint(static_cast<unsigned>(lua_tointeger(L, idx)));
+              else
+                writer.Int(static_cast<int>(lua_tointeger(L, idx)));
+            }
+            else {
+              if (flags & JSON_UNSIGNED_INTEGERS)
+                writer.Uint64(static_cast<uint64_t>(lua_tointeger(L, idx)));
+              else
+                writer.Int64(static_cast<int64_t>(lua_tointeger(L, idx)));
+            }
           }
           else {
             const double d = static_cast<double>(lua_tonumber(L, idx));
-#if defined(LUA_RAPIDJSON_LUA_FLOAT) || defined(LUA_RAPIDJSON_ROUND_FLOAT)
-            if (!rapidjson::internal::Double(d).IsNanOrInf()) {
-  #if defined(LUA_RAPIDJSON_LUA_FLOAT)
+            const bool is_inf = rapidjson::internal::Double(d).IsNanOrInf();
+            if ((flags & JSON_LUA_DTOA) && !is_inf) {
               char buffer[MAXNUMBER2STR + 2] = { 0 };
               const char *end = lua_dtoa(buffer, MAXNUMBER2STR, d);
-              if (!writer.RawValue(buffer, static_cast<rapidjson::SizeType>(end - buffer), rapidjson::kNumberType)) {
-  #else
-              if (!writer.Double(luaRoundDecimal(d))) {
-  #endif
+              if (!writer.RawValue(buffer, static_cast<rapidjson::SizeType>(end - buffer), rapidjson::kNumberType))
                 throw rapidjson::LuaException("error encoding lua float");
-              }
             }
-            else
-#endif
-            if (!writer.Double(d)) {
-              const char *output = nullptr;
-              if (!handle_exception(L, writer, idx, depth, LUA_RAPIDJSON_ERROR_NUMBER, &output)) {
-                throw rapidjson::LuaException((output != nullptr) ? output : "error encoding: kWriteNanAndInfFlag");
+            else {
+              const double _d = ((flags & JSON_LUA_GRISU) && !is_inf) ? lua_grisuRound(d) : d;
+              if (!writer.Double(_d)) {
+                const char *output = nullptr;
+                if (!handle_exception(L, writer, idx, depth, LUA_RAPIDJSON_ERROR_NUMBER, &output)) {
+                  throw rapidjson::LuaException((output != nullptr) ? output : "error encoding: kWriteNanAndInfFlag");
+                }
               }
             }
           }
