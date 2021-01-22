@@ -26,7 +26,7 @@
 #include <lua.h>
 
 #define LUA_RAPIDJSON_NAME "lua-rapidjson"
-#define LUA_RAPIDJSON_VERSION "lua-rapidjson 1.1.0"
+#define LUA_RAPIDJSON_VERSION "lua-rapidjson 1.2.0"
 #define LUA_RAPIDJSON_COPYRIGHT "Copyright (C) 2015 Xpol Wan; 2020, Gottfried Leibniz"
 #define LUA_RAPIDJSON_DESCRIPTION "rapidjson bindings for Lua"
 

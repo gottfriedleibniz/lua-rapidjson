@@ -546,7 +546,8 @@ struct DecoderData {
           | rapidjson::ParseFlag::kParseFullPrecisionFlag
           | rapidjson::ParseFlag::kParseCommentsFlag
           | rapidjson::ParseFlag::kParseNanAndInfFlag
-          | rapidjson::ParseFlag::kParseEscapedApostropheFlag>(s, decoder);
+          | rapidjson::ParseFlag::kParseEscapedApostropheFlag // Added 3e21bb429d492206c9ce2f3fd44264a5220913c4
+        >(s, decoder);
         break;
       }
       case JSON_DECODE_DEFAULT: {
@@ -554,7 +555,8 @@ struct DecoderData {
         result = reader.Parse<rapidjson::ParseFlag::kParseDefaultFlags
           | rapidjson::ParseFlag::kParseStopWhenDoneFlag
           | rapidjson::ParseFlag::kParseTrailingCommasFlag
-          | rapidjson::ParseFlag::kParseNanAndInfFlag>(s, decoder);
+          | rapidjson::ParseFlag::kParseNanAndInfFlag
+        >(s, decoder);
         break;
       }
     }

@@ -61,6 +61,14 @@ extern LUA_RAPIDJSON_LINKAGE {
   #define LUA_RAPIDJSON_IF_CONSTEXPR if
 #endif
 
+#if !defined(RAPIDJSON_DELIBERATE_FALLTHROUGH)
+  #if defined(__has_cpp_attribute) && __has_cpp_attribute(fallthrough)
+    #define RAPIDJSON_DELIBERATE_FALLTHROUGH [[fallthrough]]
+  #else
+    #define RAPIDJSON_DELIBERATE_FALLTHROUGH
+  #endif
+#endif
+
 /*
 ** {==================================================================
 ** Lua Compatibility
@@ -864,7 +872,7 @@ public:
             writer.Null();
             break;
           }
-          RAPIDJSON_DELIBERATE_FALLTHROUGH;
+          RAPIDJSON_DELIBERATE_FALLTHROUGH;  /* FALLTHROUGH */
         }
         case LUA_TLIGHTUSERDATA:
         case LUA_TUSERDATA:
