@@ -1,3 +1,5 @@
+local dir = dir or ""
+
 --luacheck: ignore describe it
 describe('rapidjson.load()', function()
   describe('report error', function()
@@ -17,147 +19,134 @@ describe('rapidjson.load()', function()
       assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail11.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail12.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail13.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail14.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail15.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail16.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail17.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail19.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail2.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail20.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      -- Comma instead of colon: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail21.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
-
-      -- Colon instead of comma: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail22.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail23.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail24.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail25.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail26.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail27.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail28.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail29.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail3.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail30.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail31.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail32.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail33.json')
-      assert.are.equal(nil, r)
-      assert.are.equal('string', type(m))
-
-      -- ExtraComma: Supported in DKJson
-      --r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail4.json')
+      --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail10.json')
       --assert.are.equal(nil, r)
       --assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail5.json')
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail11.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
-      r, o, m = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/fail6.json')
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail12.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail13.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail14.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail15.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail16.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail17.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail19.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail2.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail20.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail21.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail22.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail23.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail24.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail25.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail26.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail27.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail28.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail29.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail3.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail30.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail31.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail32.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail33.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      -- ExtraComma: Supported in DKJson
+      --r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail4.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail5.json')
+      assert.are.equal(nil, r)
+      assert.are.equal('string', type(m))
+
+      r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail6.json')
       assert.are.equal(nil, r)
       assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail7.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail7.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
 
       -- kParseStopWhenDoneFlag: Supported in DKJson
-      if not rapidjson._COMPAT then
-        r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail8.json')
-        assert.are.equal(nil, r)
-        assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail8.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
+
       -- ExtraComma: Supported in DKJson
       -- Note: default trailing comma support is enabled by default.
-      if not rapidjson._COMPAT then
-        --r, o, m = rapidjson.load('rapidjson/src/rapidjson/bin/jsonchecker/fail9.json')
-        --assert.are.equal(nil, r)
-        --assert.are.equal('string', type(m))
-      end
+      --r, o, m = rapidjson.load(dir .. 'bin/jsonchecker/fail9.json')
+      --assert.are.equal(nil, r)
+      --assert.are.equal('string', type(m))
     end)
 
     describe('should return valid table', function()
@@ -200,7 +189,7 @@ describe('rapidjson.load()', function()
         end
 
         local a, e
-        a = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json')
+        a = rapidjson.load(dir .. 'bin/jsonchecker/pass1.json')
         e = {
             "JSON Test Pattern pass1",
             {["object with 1 member"]={"array with 1 element"}},
@@ -227,10 +216,10 @@ describe('rapidjson.load()', function()
         a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
         assert.are.same(e, a)
 
-        a = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass2.json')
+        a = rapidjson.load(dir .. 'bin/jsonchecker/pass2.json')
         assert.are.same({{{{{{{{{{{{{{{{{{{"Not too deep"}}}}}}}}}}}}}}}}}}}, a)
 
-        a = rapidjson.load('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass3.json')
+        a = rapidjson.load(dir .. 'bin/jsonchecker/pass3.json')
         assert.are.same({
             ["JSON Test Pattern pass3"] = {
                 ["The outermost value"] = "must be an object or array.",
@@ -254,16 +243,16 @@ describe('rapidjson.load()', function()
             ["ja"] = "私はガラスを食べられます。それは私を傷つけません。",
             ["ko"] = "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
         }
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf16be.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf16bebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf16le.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf16lebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf32be.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf32bebom.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf32le.json'))
-        --assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf32lebom.json'))
-        assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf8.json'))
-        assert.are.same(e, rapidjson.load('rapidjson/cfx/src/rapidjson/bin/encodings/utf8bom.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf16be.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf16bebom.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf16le.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf16lebom.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf32be.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf32bebom.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf32le.json'))
+        --assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf32lebom.json'))
+        assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf8.json'))
+        assert.are.same(e, rapidjson.load(dir .. 'bin/encodings/utf8bom.json'))
       end)
     end)
   end)

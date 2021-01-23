@@ -1,3 +1,5 @@
+local dir = dir or ""
+
 --luacheck: ignore describe it setup teardown
 describe('rapidjson.dump()', function()
   local rapidjson = require('rapidjson')
@@ -16,49 +18,49 @@ describe('rapidjson.dump()', function()
     os.remove('dump.json')
   end)
   it('when load valid json file', function()
-    local e, a = check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json')
+    local e, a = check(dir .. '/bin/jsonchecker/pass1.json')
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass2.json'))
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass3.json'))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass2.json'))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass3.json'))
   end)
 
   it('should dump with pretty option = true', function()
     local option = {pretty=true}
-    local e, a = check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check(dir .. '/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should dump with pretty option = false', function()
     local option = {pretty=false}
-    local e, a = check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check(dir .. '/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should dump with empty option', function()
     local option = {}
-    local e, a = check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass1.json', option)
+    local e, a = check(dir .. '/bin/jsonchecker/pass1.json', option)
     assert.are.same(string.format("%.10g", e[9]['E']), string.format("%.10g", a[9]['E']))
     assert.are.same(string.format("%.10g", e[9]['']),string.format("%.10g", a[9]['']))
     a[9]['E'], a[9][''], e[9]['E'], e[9][''] = nil, nil, nil, nil
     assert.are.same(e, a)
 
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass2.json', option))
-    assert.are.same(check('rapidjson/cfx/src/rapidjson/bin/jsonchecker/pass3.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass2.json', option))
+    assert.are.same(check(dir .. '/bin/jsonchecker/pass3.json', option))
   end)
 
   it('should not dump with option other than table or nil', function()

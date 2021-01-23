@@ -28,8 +28,9 @@ rapidjson.dump = function(json, output, ...)
     end
 end
 
-for i=1,#arg do
-    local f = loadfile(arg[i])
+dir = arg[1] or "build/rapidjson/src/rapidjson/"
+for i=2,#arg do
+    local f,message = loadfile(arg[i])
     if f then
         f()
     end

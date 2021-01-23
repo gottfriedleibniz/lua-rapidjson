@@ -33,7 +33,7 @@ ELSEIF (LUA_RAPIDJSON_ROUND_FLOAT)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_ROUND_FLOAT)
 ENDIF ()
 
-OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" OFF)
+OPTION (LUA_RAPIDJSON_ALLOCATOR "Use a lua_getallocf binding for the rapidjson allocator class" ON)
 IF (LUA_RAPIDJSON_ALLOCATOR)
     ADD_DEFINITIONS (-DLUA_RAPIDJSON_ALLOCATOR)
 ENDIF ()
@@ -44,8 +44,12 @@ IF (LUA_RAPIDJSON_STATIC_NIL)
 ENDIF ()
 
 OPTION (LUA_COMPILED_AS_HPP "Library compiled for Lua with C++ linkage" OFF)
+OPTION (LUA_USE_LONGJMP_HPP "C++ compiled Lua still uses longjmp/setjmp for exception handling" OFF)
 IF (LUA_COMPILED_AS_HPP)
     ADD_DEFINITIONS (-DLUA_COMPILED_AS_HPP)
+    IF (LUA_USE_LONGJMP_HPP)
+        ADD_DEFINITIONS (-DLUA_USE_LONGJMP_HPP)
+    ENDIF ()    
 ENDIF ()
 
 OPTION (LUA_RAPIDJSON_EXPERIMENTAL "Experimental performance tweaks" OFF)
@@ -103,6 +107,7 @@ IF (UNIX)
         -Wno-comment
         -Wno-unused-function
         -Wno-array-bounds
+        -Wno-shadow
 
         #-Wconversion
         #-Wsign-conversion
@@ -144,7 +149,7 @@ IF (UNIX)
 ELSE(UNIX)
     IF (WIN32)
         SET (PLAT "win32")
-        ADD_DEFINITIONS (-DLUA_BUILD_AS_DLL -DLUA_LIB -D_CRT_SECURE_NO_WARNINGS)
+        ADD_DEFINITIONS (-DLUA_BUILD_AS_DLL -D_CRT_SECURE_NO_WARNINGS)
         ADD_COMPILE_OPTIONS ( /W4 )
     ELSE(WIN32)
         SET (PLAT "unsupported")
@@ -163,7 +168,7 @@ ENDIF ()
 #-------------------------------------------------------------------------------
 # rapidjson external dependency
 #-------------------------------------------------------------------------------
-SET (LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson/cfx)
+SET (LUA_RAPIDJSON ${CMAKE_BINARY_DIR}/rapidjson)
 
 include(ExternalProject)
 ExternalProject_Add(rapidjson
