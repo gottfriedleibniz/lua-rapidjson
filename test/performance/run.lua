@@ -1,7 +1,9 @@
+-- @TODO: Rewrite
 dir = arg[1] or "build/rapidjson/src/rapidjson/"
 times = tonumber(arg[2]) or 10000
 
 local function time(f, times)
+    collectgarbage()
     collectgarbage()
     local gettime = os.clock
 
@@ -67,10 +69,10 @@ local function main()
     profile(dir .. 'bin/types/nulls.json', times)
     profile(dir .. 'bin/types/booleans.json', times)
     profile(dir .. 'bin/types/guids.json', times)
-    profile(dir .. 'bin/types/paragraphs.json', times)
+    profile(dir .. 'bin/types/paragraphs.json', times / 100)
     profile(dir .. 'bin/types/floats.json', times)
     profile(dir .. 'bin/types/integers.json', times)
-    profile(dir .. 'bin/types/mixed.json', times)
+    profile(dir .. 'bin/types/mixed.json', times / 100)
 end
 
 local r, m = pcall(main)

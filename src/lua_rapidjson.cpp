@@ -254,7 +254,7 @@ static const char *const option_keys[] = {
   "indent_char",
   "indent_count", "level",  /* state.level in dkjson */
   "decimal_count",
-  "keyorder",
+  LUA_RAPIDJSON_STATE_KEYORDER,
   LUA_RAPIDJSON_STATE_EXCEPTION,
   nullptr
 };
@@ -329,11 +329,13 @@ static int make_table_type (lua_State *L, int idx, const char *meta, const char 
 /// error.
 /// </summary>
 struct EncoderData {
-  template<unsigned writeFlags = rapidjson::kWriteDefaultFlags>
-  using Basic = rapidjson::Writer<rapidjson::StringBuffer, LUA_RAPIDJSON_SOURCE, LUA_RAPIDJSON_TARGET, RAPIDJSON_ALLOCATOR, writeFlags>;
+  using Buffer = rapidjson::GenericStringBuffer<rapidjson::UTF8<>, RAPIDJSON_ALLOCATOR>;
 
   template<unsigned writeFlags = rapidjson::kWriteDefaultFlags>
-  using Pretty = rapidjson::PrettyWriter<rapidjson::StringBuffer, LUA_RAPIDJSON_SOURCE, LUA_RAPIDJSON_TARGET, RAPIDJSON_ALLOCATOR, writeFlags>;
+  using Basic = rapidjson::Writer<Buffer, LUA_RAPIDJSON_SOURCE, LUA_RAPIDJSON_TARGET, RAPIDJSON_ALLOCATOR, writeFlags>;
+
+  template<unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  using Pretty = rapidjson::PrettyWriter<Buffer, LUA_RAPIDJSON_SOURCE, LUA_RAPIDJSON_TARGET, RAPIDJSON_ALLOCATOR, writeFlags>;
 
   template<unsigned writeFlags = rapidjson::kWriteDefaultFlags>
   using BasicInf = Basic<writeFlags | rapidjson::kWriteNanAndInfFlag>;
@@ -349,14 +351,15 @@ struct EncoderData {
   int depth;  // Maximum nested-table/recursive depth
   int decimals;  // rapidjson::Writer::kDefaultMaxDecimalPlaces;
 
+  RAPIDJSON_ALLOCATOR *allocator = nullptr;
+  Buffer _buffer;  // Output buffer.
   // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
   std::vector<LuaSAX::Key> _order;  // Pre-specified key order for tables.
-  rapidjson::StringBuffer _buffer;  // Output buffer.
   void *writer_ud = nullptr;  // Allocated encoder instance
 
-  EncoderData()
+  EncoderData(RAPIDJSON_ALLOCATOR *_allocator)
     : init(true), flags(JSON_DEFAULT), indent(0), indent_amt(4), parsemode(JSON_DECODE_DEFAULT),
-      depth(LUA_RAPIDJSON_DEFAULT_DEPTH), decimals(LUA_NUMBER_FMT_LEN) {
+      depth(LUA_RAPIDJSON_DEFAULT_DEPTH), decimals(LUA_NUMBER_FMT_LEN), allocator(_allocator), _buffer(_allocator)  {
   }
 
   /// <summary>
@@ -365,13 +368,14 @@ struct EncoderData {
   RAPIDJSON_FORCEINLINE void Preinitialize() {
     init = false;
     writer_ud = nullptr;
+    allocator = nullptr;
   }
 
   /// <summary>
   /// Initialize the Encoder in-place.
   /// </summary>
-  RAPIDJSON_FORCEINLINE void InitializeInPlace() {
-    ::new(this) EncoderData;
+  RAPIDJSON_FORCEINLINE void InitializeInPlace(RAPIDJSON_ALLOCATOR *_allocator) {
+    ::new(this) EncoderData(_allocator);
   }
 
   /// <summary>
@@ -401,7 +405,6 @@ struct EncoderData {
   /// </summary>
   template<class Writer>
   int Encode(lua_State *L, int idx, int error_handler_idx = 0, int userdata_idx = 0) {
-    RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
     LuaSAX::Encoder sax(flags, depth, error_handler_idx, _order);
 
 #if defined(LUA_RAPIDJSON_ANCHOR)
@@ -409,15 +412,30 @@ struct EncoderData {
     ** Allocate the writer w/ the specified allocator, freeing it after
     ** successful encoding (or during a __gc sweep on error).
     */
-    Writer *wptr = reinterpret_cast<Writer *>(_allocator.Malloc(sizeof(Writer)));
+    Writer *wptr = reinterpret_cast<Writer *>(allocator->Malloc(sizeof(Writer)));
+    if (wptr == nullptr) {
+      /*
+      ** lua_Alloc will throw an error on failure. See the @TODO wrt std::vector
+      ** usage.
+      **
+      ** Unfortunately, much of the rapidjson library is written under the
+      ** assumption that allocator::Malloc/Realloc will never return NULL (or
+      ** throw exceptions).
+      **
+      ** @TODO Given that this library ignores the schema/document bits of
+      ** rapidjson, its possible to introduce a CrtAllocator implementation that
+      ** throws exceptions on failure.
+      */
+      throw rapidjson::LuaException("writer allocation failed");
+    }
 
-    ::new(wptr) Writer(_buffer, &_allocator);
+    ::new(wptr) Writer(_buffer, allocator);
     writer_ud = reinterpret_cast<void *>(wptr);
 
     Writer &writer = *wptr;
 #else
     /* Writer only needs to reside on the stack; unwinds on error. */
-    Writer writer(_buffer, &_allocator);
+    Writer writer(_buffer, allocator);
 #endif
 
     Initialize(writer);
@@ -639,6 +657,7 @@ extern "C" {
 
 LUALIB_API int rapidjson_encode (lua_State *L) {
   int top = 0;
+  int key_order_idx = 0; // Stack index of preset key ordering (temporary)
   int error_handler_idx = 0;  // Stack index of error handling function.
   int userdata_idx = 0;  // Stack index of the anchored rapidjson userdata.
   lua_settop(L, 2);  // Ensure second argument is created
@@ -651,25 +670,22 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   top = userdata_idx = lua_gettop(L);  // Ensure lua_settop(L) contains the userdata
   luaL_getmetatable(L, LUA_RAPIDJSON_ENCODER);  // [..., userdata, metatable]
   lua_setmetatable(L, -2);  // [..., userdata]
-
-  eud->InitializeInPlace();
-  EncoderData &encoder = *eud;
 #else
-  EncoderData encoder;
   top = lua_gettop(L);
 #endif
 
   /* Parse default options */
   lua_rapidjson_getsubtable(L, LUA_REGISTRYINDEX, LUA_RAPIDJSON_REG);
-  encoder.flags = geti(L, -1, LUA_RAPIDJSON_REG_FLAGS, encoder.flags);
-  encoder.parsemode = geti(L, -1, LUA_RAPIDJSON_REG_PRESET, encoder.parsemode);
-  encoder.indent = geti(L, -1, LUA_RAPIDJSON_REG_INDENT, encoder.indent);
-  encoder.indent_amt = geti(L, -1, LUA_RAPIDJSON_REG_INDENT_AMT, (encoder.indent == 0) ? 4 : 0);
-  encoder.depth = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_DEPTH, encoder.depth));
-  encoder.decimals = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_MAXDEC, encoder.decimals));
+  lua_Integer flags = geti(L, -1, LUA_RAPIDJSON_REG_FLAGS, JSON_DEFAULT);
+  lua_Integer parsemode = geti(L, -1, LUA_RAPIDJSON_REG_PRESET, JSON_DECODE_DEFAULT);
+  lua_Integer indent = geti(L, -1, LUA_RAPIDJSON_REG_INDENT, 0);
+  lua_Integer indent_amt = geti(L, -1, LUA_RAPIDJSON_REG_INDENT_AMT, (indent == 0) ? 4 : 0);
+  int depth = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_DEPTH, LUA_RAPIDJSON_DEFAULT_DEPTH));
+  int decimals = static_cast<int>(geti(L, -1, LUA_RAPIDJSON_REG_MAXDEC, LUA_NUMBER_FMT_LEN));
   lua_pop(L, 1);
 
   if (lua_istable(L, 2)) {  // Parse all options from the additional argument table.
+    bool has_key_order = false;
     bool has_exception_handler = false;
 
     lua_pushnil(L);
@@ -688,33 +704,30 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
         case JSON_ARRAY_SINGLE_LINE:
         case JSON_ARRAY_EMPTY:
         case JSON_ARRAY_WITH_HOLES:
-          encoder.flags = lua_toboolean(L, -1) ? (encoder.flags | opt) : (encoder.flags & ~opt);
+          flags = lua_toboolean(L, -1) ? (flags | opt) : (flags & ~opt);
           break;
         case JSON_ENCODER_MAX_DEPTH:
-          if ((encoder.depth = static_cast<int>(lua_tointeger(L, -1))) <= 0)
-            return encoder._luaL_error(L, userdata_idx, "invalid encoder depth");
+          if ((depth = static_cast<int>(lua_tointeger(L, -1))) <= 0)
+            return luaL_error(L, "invalid encoder depth");
           break;
         case JSON_ENCODER_DECIMALS:
-          if ((encoder.decimals = static_cast<int>(lua_tointeger(L, -1))) <= 0)
-            return encoder._luaL_error(L, userdata_idx, "invalid decimal count");
+          if ((decimals = static_cast<int>(lua_tointeger(L, -1))) <= 0)
+            return luaL_error(L, "invalid decimal count");
           break;
         case JSON_ENCODER_INDENT:
-          encoder.indent = lua_tointeger(L, -1);
-          if (encoder.indent < 0 || encoder.indent >= 4)
-            return encoder._luaL_error(L, userdata_idx, "invalid indentation index");
+          indent = lua_tointeger(L, -1);
+          if (indent < 0 || indent >= 4)
+            return luaL_error(L, "invalid indentation index");
           break;
         case JSON_ENCODER_INDENT_AMT:
-          if ((encoder.indent_amt = lua_tointeger(L, -1)) < 0)
-            return encoder._luaL_error(L, userdata_idx, "invalid indentation amount");
+          if ((indent_amt = lua_tointeger(L, -1)) < 0)
+            return luaL_error(L, "invalid indentation amount");
           break;
         case JSON_ENCODER_HANDLER:
           has_exception_handler = lua_isfunction(L, -1);
           break;
         case JSON_TABLE_KEY_ORDER: {
-          if (lua_istable(L, -1)) {
-            if (LuaSAX::populate_key_vector(L, -1, encoder._order) != 0)
-              return encoder._luaL_error(L, userdata_idx, "invalid key_order element");
-          }
+          has_key_order = lua_istable(L, -1);
           break;
         }
         default:
@@ -724,19 +737,45 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     }
 
     if (has_exception_handler) {
-      lua_getfield(L, 2, LUA_RAPIDJSON_STATE_EXCEPTION);
-      error_handler_idx = lua_gettop(L);  // (int top) + 1
+      lua_getfield(L, 2, LUA_RAPIDJSON_STATE_EXCEPTION);  // [... [, userdata] [, exception_handler]]
+      error_handler_idx = lua_gettop(L);
+    }
+
+    if (has_key_order) {
+      lua_getfield(L, 2, LUA_RAPIDJSON_STATE_KEYORDER);  // [... [, userdata] [, exception_handler] [, key_order]]
+      key_order_idx = lua_gettop(L);
     }
   }
   else if (!lua_isnoneornil(L, 2)) {
-    return encoder._luaL_error(L, userdata_idx, "Argument 2: table or nothing expected");
+    return luaL_error(L, "Argument 2: table or nothing expected");
   }
 
   /* Sanitize pretty_print parameters even when not using them. */
-  if (encoder.indent < 0 || encoder.indent >= 4 || encoder.depth < 0)
-    return encoder._luaL_error(L, userdata_idx, "invalid encoder parameters");
+  if (indent < 0 || indent >= 4 || depth < 0)
+    return luaL_error(L, "invalid encoder parameters");
 
   try {
+    RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
+#if defined(LUA_RAPIDJSON_ANCHOR)
+    eud->InitializeInPlace(&_allocator);
+    EncoderData &encoder = *eud;
+#else
+    EncoderData encoder(&_allocator);
+#endif
+    encoder.flags = flags;
+    encoder.parsemode = parsemode;
+    encoder.indent = indent;
+    encoder.indent_amt = indent_amt;
+    encoder.depth = depth;
+    encoder.decimals = decimals;
+    if (key_order_idx > 0) {
+      if (LuaSAX::populate_key_vector(L, key_order_idx, encoder._order) != 0)
+        throw rapidjson::LuaException("invalid key_order element");
+      lua_pop(L, 1);  // [... [, userdata] [, exception_handler]]
+    }
+
+    // After encoding: [... [, userdata] [, exception_handler], encoded_string]
+    // ldo.moveresults  will cleanup the intermediate arguments.
     if (encoder.flags & JSON_PRETTY_PRINT) {
       if (encoder.flags & JSON_NAN_AND_INF)
         return encoder.Encode<EncoderData::PrettyInf<>>(L, 1, error_handler_idx, userdata_idx);
@@ -763,7 +802,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
     lua_pushstring(L, "Unexpected exception");
   }
 
-  return encoder._lua_error(L, userdata_idx);
+  return lua_error(L);
 }
 
 LUALIB_API int rapidjson_decode (lua_State *L) {
@@ -822,25 +861,27 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   }
 
   /* Function has six potential parameters, setup decoder data after all have been parsed  */
-  RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
 #if defined(LUA_RAPIDJSON_ANCHOR)
   DecoderData *dud = reinterpret_cast<DecoderData *>(json_newuserdata(L, sizeof(DecoderData)));  // [..., userdata]
-  DecoderData &decoder = *dud;
   dud->Preinitialize();
 
   top = userdata_idx = lua_gettop(L);
   luaL_getmetatable(L, LUA_RAPIDJSON_DECODER);  // [..., userdata, metatable]
   lua_setmetatable(L, -2);  // [..., userdata]
-
-  dud->InitializeInPlace(&_allocator);
 #else
-  DecoderData decoder(&_allocator);
   top = lua_gettop(L);
 #endif
 
-  decoder.flags = flags;
-  decoder.parsemode = parsemode;
   try {
+    RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
+#if defined(LUA_RAPIDJSON_ANCHOR)
+    dud->InitializeInPlace(&_allocator);
+    DecoderData &decoder = *dud;
+#else
+    DecoderData decoder(&_allocator);
+#endif
+    decoder.flags = flags;
+    decoder.parsemode = parsemode;
     const rapidjson::ParseResult r = decoder.Decode(L, userdata_idx, contents, len, position, nullarg, objectarg, arrayarg);
     if (r.IsError()) {
       lua_settop(L, top);
@@ -879,7 +920,7 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
     lua_pushstring(L, "Unexpected exception");
   }
 
-  return decoder._lua_error(L, userdata_idx);
+  return lua_error(L);
 }
 
 LUALIB_API int rapidjson_setoption (lua_State *L) {
