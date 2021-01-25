@@ -46,6 +46,7 @@ extern LUA_RAPIDJSON_LINKAGE {
 #define LUA_RAPIDJSON_META_TYPE_OBJECT "object"
 
 /* dkjson state functions */
+#define LUA_RAPIDJSON_STATE_KEYORDER "keyorder"
 #define LUA_RAPIDJSON_STATE_EXCEPTION "exception"
 
 /* dkjson Error Messages */
