@@ -196,13 +196,13 @@ static inline int json_isinteger (lua_State *L, int idx) {
 #define LUA_RAPIDJSON_TARGET rapidjson::UTF8<>
 
 /* Default allocator class */
-#if defined(LUA_RAPIDJSON_ALLOCATOR)
+//#if defined(LUA_RAPIDJSON_ALLOCATOR)
   #define RAPIDJSON_ALLOCATOR rapidjson::LuaAllocator
   #define RAPIDJSON_ALLOCATOR_INIT(L, NAME) rapidjson::LuaAllocator NAME(L)
-#else
-  #define RAPIDJSON_ALLOCATOR rapidjson::CrtAllocator
-  #define RAPIDJSON_ALLOCATOR_INIT(L, NAME) rapidjson::CrtAllocator NAME
-#endif
+//#else
+//  #define RAPIDJSON_ALLOCATOR rapidjson::CrtAllocator
+//  #define RAPIDJSON_ALLOCATOR_INIT(L, NAME) rapidjson::CrtAllocator NAME
+//#endif
 
 /*
 ** rapidjson::Writer<rapidjson::StringBuffer>::kDefaultMaxDecimalPlaces
