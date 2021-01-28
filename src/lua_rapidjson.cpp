@@ -347,7 +347,6 @@ struct EncoderData {
 
   RAPIDJSON_ALLOCATOR *allocator = nullptr;
   Buffer _buffer;  // Output buffer.
-  // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
   std::vector<LuaSAX::Key> _order;  // Pre-specified key order for tables.
   void *writer_ud = nullptr;  // Allocated encoder instance
 
@@ -743,6 +742,7 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
   if (indent < 0 || indent >= 4 || depth < 0)
     return luaL_error(L, "invalid encoder parameters");
 
+  bool has_error_string = false;
   try {
     RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
 #if defined(LUA_RAPIDJSON_ANCHOR)
@@ -778,19 +778,22 @@ LUALIB_API int rapidjson_encode (lua_State *L) {
         return encoder.Encode<EncoderData::Basic<>>(L, 1, error_handler_idx, userdata_idx);
     }
   }
+  catch (const rapidjson::LuaCallException &e) {
+    has_error_string = e.pushError(L, top);
+  }
   catch (const rapidjson::LuaTypeException &e) {
-    lua_settop(L, top);
-    e.pushError(L);
+    has_error_string = e.pushError(L, top);
   }
   catch (const std::exception &e) {
     lua_settop(L, top);
-    lua_pushstring(L, e.what());
+    has_error_string = rapidjson::LuaTypeException::_lua_pushstring(L, e.what());
   }
   catch (...) {
     lua_settop(L, top);
-    lua_pushstring(L, "Unexpected exception");
   }
 
+  if (!has_error_string)
+    lua_pushstring(L, "Unexpected exception");
   return lua_error(L);
 }
 
@@ -861,6 +864,7 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
   top = lua_gettop(L);
 #endif
 
+  bool has_error_string = false;
   try {
     RAPIDJSON_ALLOCATOR_INIT(L, _allocator);
 #if defined(LUA_RAPIDJSON_ANCHOR)
@@ -889,26 +893,30 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
       return 2;
     }
   }
+  catch (const rapidjson::LuaCallException &e) {
+    has_error_string = e.pushError(L, top);
+  }
   catch (const rapidjson::LuaTypeException &e) {
-    lua_settop(L, top);
-    e.pushError(L);
+    has_error_string = e.pushError(L, top);
   }
   catch (const std::exception &e) {
     lua_settop(L, top);
 #if defined(LUA_RAPIDJSON_EXPLICIT)
-    lua_pushstring(L, e.what());
+    has_error_string = rapidjson::LuaTypeException::_lua_pushstring(L, e.what());
 #else
     lua_pushnil(L);
     lua_pushinteger(L, -1);
-    lua_pushstring(L, e.what());
+    if (!rapidjson::LuaTypeException::_lua_pushstring(L, e.what()))
+      lua_pushnil(L);  // Worst case scenario; push nil or a number (implicitly cvt2str)
     return 3;
 #endif
   }
   catch (...) {
     lua_settop(L, top);
-    lua_pushstring(L, "Unexpected exception");
   }
 
+  if (!has_error_string)
+    lua_pushstring(L, "Unexpected exception");
   return lua_error(L);
 }
 
