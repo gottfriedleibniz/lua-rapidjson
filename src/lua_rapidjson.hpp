@@ -1,3 +1,11 @@
+/*
+** $Id: lua_rapidjson.hpp $
+** rapidjson binding header
+** See Copyright Notice in LICENSE
+**
+** @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR.
+**        Optionally replace the std::allocator for each std::vector instance.
+*/
 #ifndef __LUA_RAPIDJSON_HPP__
 #define __LUA_RAPIDJSON_HPP__
 
@@ -139,6 +147,17 @@ static inline int json_isinteger (lua_State *L, int idx) {
       if (!lua_checkstack((L), (sz)))         \
         throw rapidjson::LuaStackException(); \
     } while ( 0 )
+#endif
+
+/* Macro that handles the C++ -> Lua call barrier */
+#if defined(LUA_COMPILED_AS_HPP)
+  #define json_call(L, n, r)                              \
+    do { /* [..., error_message] */                       \
+      if (lua_pcall(L, n, r, 0) != LUA_OK)                \
+        throw rapidjson::LuaCallException(lua_gettop(L)); \
+    } while (0)
+#else
+  #define json_call(L, n, r) lua_call(L, n, r)
 #endif
 
 /* Macro for geti/seti. Parameters changed from int to lua_Integer in 53 */
@@ -675,7 +694,7 @@ public:
       // @TODO: Rewrite using lua_stringtonumber >= 503
       lua_getglobal(L, "tonumber");  // [..., tonumber]
       lua_pushlstring(L, str, length);  // [..., tonumber, str]
-      lua_call(L, 1, 1);  // [..., number]
+      json_call(L, 1, 1);  // [..., number]
       LUA_JSON_SUBMIT();
       return true;
     }
@@ -759,8 +778,6 @@ private:
     lua_Integer flags;  // Configuration flags
     int max_depth;  // Maximum recursive depth
     int error_handler_idx;  // (Positive) stack index of the error handling function
-
-    // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
     std::vector<LuaSAX::Key> &order;  // Key-ordering list
 
     /// <summary>
@@ -865,7 +882,7 @@ private:
         lua_pushvalue(L, error_handler_idx);  // [..., function]
         lua_pushstring(L, reason);  // [..., function, reason]
         lua_pushvalue(L, json_rel_index(idx, 2));  // [..., function, reason, value]
-        lua_call(L, 2, 2);  // [..., r_value, r_reason]
+        json_call(L, 2, 2);  // [..., r_value, r_reason]
 
         if (lua_isnil(L, -2))
           *output = luaL_optstring(L, -1, nullptr);
@@ -910,6 +927,18 @@ public:
           else {
             const double d = static_cast<double>(lua_tonumber(L, idx));
             const bool is_inf = rapidjson::internal::Double(d).IsNanOrInf();
+
+            /*
+            ** Per DKJson:
+            **    if value ~= value or value >= huge or -value >= huge then
+            **      -- This is the behaviour of the original JSON implementation.
+            **      s = "null"
+            */
+#if defined(LUA_RAPIDJSON_COMPAT)
+            if (is_inf)
+              writer.Null();
+            else
+#endif
             if ((flags & JSON_LUA_DTOA) && !is_inf) {
               char buffer[MAXNUMBER2STR + 2] = { 0 };
               const char *end = lua_dtoa(buffer, MAXNUMBER2STR, d);
@@ -1012,7 +1041,7 @@ public:
       if (lua_type(L, -1) == LUA_TFUNCTION) {  // @TODO: LUA_RAPIDJSON_ERROR_FAIL
 #endif
         lua_pushvalue(L, json_rel_index(idx, 1));  // [..., metafield, self]
-        lua_call(L, 1, 1);  // [..., result]
+        json_call(L, 1, 1);  // [..., result]
         if (lua_type(L, -1) == LUA_TSTRING) {
           size_t len;
           const char *s = lua_tolstring(L, -1, &len);
@@ -1056,12 +1085,11 @@ public:
         /* __jsonorder returns a function (i.e., order dependent on state) */
         if (lua_type(L, -1) == LUA_TFUNCTION) {
           lua_pushvalue(L, json_rel_index(idx, 1));  // [..., order_func, self]
-          lua_call(L, 1, 1);  // [..., order]
+          json_call(L, 1, 1);  // [..., order]
         }
 
         /* __jsonorder is a table or a function that returns a table */
         if (lua_type(L, -1) == LUA_TTABLE) {
-          // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
           std::vector<LuaSAX::Key> meta_order, unorder;
           populate_key_vector(L, -1, meta_order);
           lua_settop(L, top);  // & Metafield
@@ -1074,7 +1102,6 @@ public:
         }
       }
       else if ((flags & JSON_SORT_KEYS) != 0 || order.size() != 0) {  // Generate a key order
-        // @TODO: Replace with vector implementation that uses RAPIDJSON_ALLOCATOR
         std::vector<LuaSAX::Key> unorder;  // All keys not contained in 'order'
         populate_unordered_vector(L, idx, order, unorder);
         if (flags & JSON_SORT_KEYS)

@@ -8,6 +8,11 @@ extern LUA_RAPIDJSON_LINKAGE {
 }
 #endif
 
+/* LUA_OK introduced in Lua 5.2 */
+#if !defined(LUA_OK)
+  #define LUA_OK 0
+#endif
+
 /*
 ** StringStream
 **
@@ -150,22 +155,80 @@ public:
 
   /// <summary>
   /// A JSON encoding/decoding error.
-  ///
-  /// @TODO: Consider placing the exception message on top of the Lua stack,
-  /// ensuring that fields (i.e., strings) in the exception do not leak.
   /// </summary>
   class LuaException : public std::exception {
 private:
-    std::string _msg;
+    const char *_msg;  // Error message string literal
     LuaException &operator=(const LuaException &other);  // prevent
 
 public:
     LuaException(const char *s) : _msg(s) { }
-    LuaException(const std::string &s) : _msg(s) { }
     LuaException(const LuaException &other) : _msg(other._msg) { }
-
     const char *what() const noexcept override {
-      return _msg.c_str();
+      return _msg;
+    }
+  };
+
+  class LuaCallException : public std::exception {
+private:
+    int top;  // lua_pcall error message index
+
+public:
+    LuaCallException(int _top) : top(_top) { }
+    LuaCallException(const LuaCallException &other) : top(other.top) { }
+    const char *what() const noexcept override {
+      return "lua_pcall error";
+    }
+
+    /// <summary>
+    /// Rotates the error message
+    /// </summary>
+    bool pushError(lua_State *L, const int call_top) const {
+      if (top <= call_top || !lua_checkstack(L, 2)) {  // Invalid state, should never happen
+        lua_settop(L, call_top);
+        return false;
+      }
+      else if (top > (call_top + 1)) {  // Move "error message" to call_top + 1
+#if LUA_VERSION_NUM < 503
+        static auto compat_absindex = [](lua_State *L, int i) -> int {
+          if (i < 0 && i > LUA_REGISTRYINDEX)
+            i += lua_gettop(L) + 1;
+          return i;
+        };
+
+        static auto compat_reverse = [](lua_State *L, int a, int b) {
+          for (; a < b; ++a, --b) {
+            lua_pushvalue(L, a);
+            lua_pushvalue(L, b);
+            lua_replace(L, a);
+            lua_replace(L, b);
+          }
+        };
+
+        static auto compat_rotate = [](lua_State *_L, int idx, int n) {
+          idx = compat_absindex(_L, idx);
+
+          const int n_elems = lua_gettop(_L) - idx + 1;
+          if (n < 0)
+            n += n_elems;
+
+          if (n > 0 && n < n_elems) {
+            n = n_elems - n;
+            compat_reverse(_L, idx, idx + n - 1);
+            compat_reverse(_L, idx + n, idx + n_elems - 1);
+            compat_reverse(_L, idx, idx + n_elems - 1);
+          }
+        };
+
+        compat_rotate(L, call_top + 1, 1);
+#else
+        lua_rotate(L, call_top + 1, 1);
+#endif
+        lua_settop(L, call_top + 1);
+        return true;
+      }
+
+      return true;
     }
   };
 
@@ -189,23 +252,65 @@ public:
       : _luatype(other._luatype), _errorcode(other._errorcode) {
     }
 
-    int pushError(lua_State *L) const {
+    bool pushError(lua_State *L, const int call_top) const {
+      lua_settop(L, call_top);
       switch (_errorcode) {
         case UnsupportedType:
-          lua_pushfstring(L, "type '%s' is not supported by JSON\n", lua_typename(L, _luatype));
-          break;
+          return LuaTypeException::_lua_typestring(L, "type '%s' is not supported by JSON\n", _luatype);
         case UnsupportedKeyOrder:
-          lua_pushfstring(L, "type '%s' is not supported as a keyorder by JSON\n", lua_typename(L, _luatype));
-          break;
+          return LuaTypeException::_lua_typestring(L, "type '%s' is not supported as a keyorder by JSON\n", _luatype);
         default:
-          lua_pushstring(L, "LuaTypeException");
-          break;
+          return LuaTypeException::_lua_pushstring(L, "LuaTypeException");
       }
-      return 1;
     }
 
     const char *what() const noexcept override {
       return "LuaTypeException";
+    }
+
+    /// <summary>
+    /// Safely push strings onto the Lua stack. This function should generally
+    /// only be called during exception handling.
+    /// </summary>
+    static bool _lua_pushstring(lua_State *_L, char const *str) {
+      auto push = [](lua_State *L) {
+        auto ptr = lua_touserdata(L, 1);
+        if (ptr) {
+          const char *str = *reinterpret_cast<const char **>(ptr);
+          lua_pushstring(L, str);
+          return 1;
+        }
+        return 0;
+      };
+
+      // Use Lua API functions that cannot raise errors (especially LUA_ERRMEM)
+      lua_pushcfunction(_L, push);
+      lua_pushlightuserdata(_L, &str);
+      return lua_pcall(_L, 1, 1, 0) == LUA_OK;
+    }
+
+    /// <summary>
+    /// lua_pushfstring helper where "_fmt" is a string with only one string
+    /// conversion specifier.
+    /// </summary>
+    static bool _lua_typestring(lua_State *_L, const char *_fmt, int _type) {
+      auto push = [](lua_State *L) {
+        auto ptr_fmt = lua_touserdata(L, 1);
+        int ptr_type = static_cast<int>(lua_tointeger(L, 2));
+        if (ptr_fmt) {
+          const char *fmt = *reinterpret_cast<char **>(ptr_fmt);
+          const char *type = lua_typename(L, ptr_type);
+          lua_pushfstring(L, fmt, type);
+          return 1;
+        }
+
+        return 0;  // raise an error
+      };
+
+      lua_pushcfunction(_L, push);
+      lua_pushlightuserdata(_L, &_fmt);
+      lua_pushinteger(_L, _type);
+      return lua_pcall(_L, 2, 1, 0) == LUA_OK;
     }
   };
 }
