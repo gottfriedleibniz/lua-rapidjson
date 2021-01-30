@@ -856,6 +856,18 @@ public:
           else {
             const double d = static_cast<double>(lua_tonumber(L, idx));
             const bool is_inf = rapidjson::internal::Double(d).IsNanOrInf();
+
+            /*
+            ** Per DKJson:
+            **    if value ~= value or value >= huge or -value >= huge then
+            **      -- This is the behaviour of the original JSON implementation.
+            **      s = "null"
+            */
+#if defined(LUA_RAPIDJSON_COMPAT)
+            if (is_inf)
+              writer.Null();
+            else
+#endif
             if ((flags & JSON_LUA_DTOA) && !is_inf) {
               char buffer[MAXNUMBER2STR + 2] = { 0 };
               const char *end = lua_dtoa(buffer, MAXNUMBER2STR, d);

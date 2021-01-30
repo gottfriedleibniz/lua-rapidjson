@@ -166,8 +166,10 @@ bool table_is_json_array (lua_State *L, int idx, lua_Integer flags, size_t *arra
   lua_pushnil(L);  // [..., key]
   while (lua_next(L, i_idx)) {  // [..., key, value]
     lua_Integer n;
+#if defined(LUA_RAPIDJSON_COMPAT)
     size_t strlen = 0;
     const char *key = nullptr;
+#endif
 
     /* && within range of size_t */
     if (json_isinteger(L, -2) && (n = lua_tointeger(L, -2), (n >= 1 && static_cast<size_t>(n) <= JSON_MAX_LUAINDEX))) {
@@ -175,6 +177,7 @@ bool table_is_json_array (lua_State *L, int idx, lua_Integer flags, size_t *arra
       max = nst > max ? nst : max;
       count++;
     }
+#if defined(LUA_RAPIDJSON_COMPAT)
     /* Similar to dkjson; support the common table.pack / { n = select("#", ...), ... } idiom */
     else if (lua_type(L, -2) == LUA_TSTRING
              && json_isinteger(L, -1)
@@ -184,6 +187,7 @@ bool table_is_json_array (lua_State *L, int idx, lua_Integer flags, size_t *arra
       arraylen = static_cast<size_t>(n);
       max = arraylen > max ? arraylen : max;
     }
+#endif
     else {
       lua_settop(L, stacktop);
       return false;
@@ -1078,6 +1082,7 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
     { "_VERSION", nullptr },
     { "_COPYRIGHT", nullptr },
     { "_DESCRIPTION", nullptr },
+    { "_COMPAT", nullptr },
     { nullptr, nullptr }
   };
 
@@ -1116,6 +1121,11 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
   lua_pushliteral(L, LUA_RAPIDJSON_VERSION); lua_setfield(L, -2, "_VERSION");
   lua_pushliteral(L, LUA_RAPIDJSON_COPYRIGHT); lua_setfield(L, -2, "_COPYRIGHT");
   lua_pushliteral(L, LUA_RAPIDJSON_DESCRIPTION); lua_setfield(L, -2, "_DESCRIPTION");
+#if defined(LUA_RAPIDJSON_COMPAT)
+  lua_pushboolean(L, 1); lua_setfield(L, -2, "_COMPAT");
+#else
+  lua_pushboolean(L, 0); lua_setfield(L, -2, "_COMPAT");
+#endif
 
   /* Register name globally for 5.1 */
 #if LUA_VERSION_NUM == 501
