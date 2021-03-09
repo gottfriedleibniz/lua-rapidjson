@@ -363,6 +363,7 @@ LUA_RAPIDJSON_API bool table_is_json_array (lua_State *L, int idx, lua_Integer f
 #define JSON_UNSIGNED_INTEGERS  0x10 /* Encode integers as unsigned values */
 #define JSON_NAN_AND_INF        0x20 /* Allow writing of Infinity, -Infinity and NaN. */
 #define JSON_ENCODE_INT32       0x40 /* Encode integers as 32-bit */
+#define JSON_ENCODE_TYPE_IGNORE 0x80 /* Ignore invalid types during encoding instead of throwing an error */
 
 /* Floating Point Encoding */
 #define JSON_LUA_DTOA           0x100 /* Use sprintf instead of rapidjson's native Grisu2 implementation */
@@ -911,7 +912,9 @@ public:
         default: {
           if (!encodeMetafield(L, writer, idx, depth)) {
             const char *output = nullptr;
-            if (!handle_exception(L, writer, idx, depth, LUA_RAPIDJSON_ERROR_TYPE, &output)) {
+            if ((flags & JSON_ENCODE_TYPE_IGNORE))
+              writer.Null();
+            else if (!handle_exception(L, writer, idx, depth, LUA_RAPIDJSON_ERROR_TYPE, &output)) {
               if (output)
                 throw rapidjson::LuaException(output);
               else
@@ -989,6 +992,7 @@ public:
 
         /* __jsonorder is a table or a function that returns a table */
         if (lua_type(L, -1) == LUA_TTABLE) {
+          // @TODO replace vectors with temporarily anchored userdata
           std::vector<LuaSAX::Key> meta_order, unorder;
           populate_key_vector(L, -1, meta_order);
           lua_settop(L, top);  // & Metafield
@@ -1001,6 +1005,7 @@ public:
         }
       }
       else if ((flags & JSON_SORT_KEYS) != 0 || order.size() != 0) {  // Generate a key order
+        // @TODO replace vector with temporarily anchored userdata
         std::vector<LuaSAX::Key> unorder;  // All keys not contained in 'order'
         populate_unordered_vector(L, idx, order, unorder);
         if (flags & JSON_SORT_KEYS)

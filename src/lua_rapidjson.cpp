@@ -243,6 +243,7 @@ static const char *const option_keys[] = {
   "unsigned",
   "nan", "inf",
   "bit32",
+  "ignore_invalid",
   "lua_format_float",
   "lua_round_float",
   "single_line",
@@ -268,6 +269,7 @@ static const lua_Integer option_keys_num[] = {
   JSON_UNSIGNED_INTEGERS,
   JSON_NAN_AND_INF, JSON_NAN_AND_INF,
   JSON_ENCODE_INT32,
+  JSON_ENCODE_TYPE_IGNORE,
   JSON_LUA_DTOA,
   JSON_LUA_GRISU,
   JSON_ARRAY_SINGLE_LINE,
@@ -937,6 +939,7 @@ LUALIB_API int rapidjson_setoption (lua_State *L) {
     case JSON_UNSIGNED_INTEGERS:
     case JSON_NAN_AND_INF:
     case JSON_ENCODE_INT32:
+    case JSON_ENCODE_TYPE_IGNORE:
     case JSON_LUA_DTOA:
     case JSON_LUA_GRISU:
     case JSON_ARRAY_SINGLE_LINE:
@@ -986,6 +989,7 @@ LUALIB_API int rapidjson_getoption (lua_State *L) {
     case JSON_UNSIGNED_INTEGERS:
     case JSON_NAN_AND_INF:
     case JSON_ENCODE_INT32:
+    case JSON_ENCODE_TYPE_IGNORE:
     case JSON_LUA_DTOA:
     case JSON_LUA_GRISU:
     case JSON_ARRAY_SINGLE_LINE:
