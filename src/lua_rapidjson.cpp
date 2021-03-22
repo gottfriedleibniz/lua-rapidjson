@@ -56,6 +56,7 @@ typedef lua_Integer json_regType;  // Registry Table KeyType
 
 #define json_conf_getfield(L, I, K) lua_rawgeti((L), (I), (K))
 #define json_conf_setfield(L, I, K) lua_rawseti((L), (I), (K))
+#define json_decoding_metatable(L, I) (lua_istable((L), (I)) || lua_isnil((L), (I)))
 
 #define lua_absindex(L, i) ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : lua_gettop(L) + (i) + 1)
 static int lua_rapidjson_getsubtable (lua_State *L, int idx, const char *key) {
@@ -852,8 +853,10 @@ LUALIB_API int rapidjson_decode (lua_State *L) {
 
   position = luaL_optsizet(L, trailer, 1);
   nullarg = (lua_gettop(L) >= (trailer + 1)) ? (trailer + 1) : -1;
-  objectarg = lua_istable(L, (trailer + 2)) ? (trailer + 2) : -1;
-  arrayarg = lua_istable(L, (trailer + 3)) ? (trailer + 3) : -1;
+  objectarg = json_decoding_metatable(L, trailer + 2) ? (trailer + 2) : -1;
+  arrayarg = json_decoding_metatable(L, trailer + 3) ? (trailer + 3) : -1;
+  if (objectarg > 0 && arrayarg < 0 && lua_isnil(L, objectarg))
+    arrayarg = objectarg;
 
   if (len == 0) {  // Gracefully handle empty strings
     lua_pushnil(L);
