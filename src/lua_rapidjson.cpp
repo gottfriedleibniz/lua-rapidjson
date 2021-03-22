@@ -121,13 +121,12 @@ static int luaL_optcheckoption (lua_State *L, int arg, const char *def, const ch
 ** ===================================================================
 */
 
-int json_null (lua_State *L) {
-  lua_pushcfunction(L, json_null);
-  return 1;
-}
-
 bool is_json_null (lua_State *L, int idx) {
-  return lua_tocfunction(L, idx) == json_null;
+#if LUA_VERSION_NUM == 501
+  return lua_touserdata(L, idx) == reinterpret_cast<void *>((&rapidjson_null));
+#else
+  return lua_tocfunction(L, idx) == rapidjson_null;
+#endif
 }
 
 bool has_json_type (lua_State *L, int idx, bool *is_array) {
@@ -649,6 +648,14 @@ struct DecoderData {
 };
 
 extern "C" {
+LUALIB_API int rapidjson_null (lua_State *L) {
+#if LUA_VERSION_NUM == 501
+  lua_pushlightuserdata(L, (void *)(&rapidjson_null));
+#else
+  lua_pushcfunction(L, rapidjson_null);
+#endif
+  return 1;
+}
 
 LUALIB_API int rapidjson_encode (lua_State *L) {
   int top = 0;
@@ -1075,7 +1082,7 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
     { "setoption", rapidjson_setoption },
     { "getoption", rapidjson_getoption },
     /* special tags and functions */
-    { "null", json_null },
+    { "null", rapidjson_null }, { "sentinel", rapidjson_null },
     { "object", rapidjson_object },
     { "array", rapidjson_array },
     { "isobject", rapidjson_isobject },

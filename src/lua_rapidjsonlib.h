@@ -139,6 +139,9 @@ LUALIB_API int rapidjson_decode(lua_State *L);
 LUALIB_API int rapidjson_setoption (lua_State *L);
 LUALIB_API int rapidjson_getoption (lua_State *L);
 
+/* Pushes the null-sentinel onto the stack; returning 1. */
+LUALIB_API int rapidjson_null (lua_State *L);
+
 /* */
 LUALIB_API int rapidjson_object (lua_State *L);
 LUALIB_API int rapidjson_isobject (lua_State *L);

@@ -41,6 +41,7 @@ extern LUA_RAPIDJSON_LINKAGE {
 #endif
 
 #include "StringStream.hpp"
+#include "lua_rapidjsonlib.h"
 
 /* Registry Table Keys */
 #define LUA_RAPIDJSON_REG_ARRAY "lua_rapidjson_array"
@@ -306,11 +307,12 @@ static inline double lua_grisuRound(double d) {
 ** ===================================================================
 */
 
-/* TODO: Option to allow external linkage of these functions */
-#define LUA_RAPIDJSON_API LUAI_FUNC
-
-/* Pushes the null-sentinel onto the stack; returning 1. */
-LUA_RAPIDJSON_API int json_null (lua_State *L);
+/* @TODO: Option to allow external linkage of these functions */
+#if defined(LUAI_FUNC)
+  #define LUA_RAPIDJSON_API LUAI_FUNC
+#else
+  #define LUA_RAPIDJSON_API static
+#endif
 
 /*
 ** Return true if the object at the specific stack index is, or a reference to,
@@ -570,7 +572,7 @@ public:
       else if ((flags & JSON_LUA_NULL))
         lua_pushnil(L);
       else
-        json_null(L);
+        rapidjson_null(L);
       LUA_JSON_SUBMIT();
       return true;
     }
@@ -898,14 +900,22 @@ public:
           encodeTable(L, writer, idx, depth + 1);
           break;
         }
+#if LUA_VERSION_NUM > 501
         case LUA_TFUNCTION: {
+#else
+        case LUA_TLIGHTUSERDATA: {
+#endif
           if (is_json_null(L, idx)) {
             writer.Null();
             break;
           }
           RAPIDJSON_DELIBERATE_FALLTHROUGH;  /* FALLTHROUGH */
         }
+#if LUA_VERSION_NUM > 501
         case LUA_TLIGHTUSERDATA:
+#else
+        case LUA_TFUNCTION:
+#endif
         case LUA_TUSERDATA:
         case LUA_TTHREAD:
         case LUA_TNONE:
