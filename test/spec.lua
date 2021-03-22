@@ -1,7 +1,9 @@
+package.path = package.path .. ";./test/?.lua"
+
 lua_assert = assert
 rapidjson = require('rapidjson')
-describe = require('test/describe')
-assert = require('test/elegantassert')
+describe = require('describe')
+assert = require('elegantassert')
 
 assert.jsonnil = rapidjson.null
 
