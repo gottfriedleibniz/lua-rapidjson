@@ -1,4 +1,11 @@
-#pragma once
+/*
+** $Id: StringStream.hpp $
+** Miscellaneous rapidjson extensions.
+** See Copyright Notice in lua_rapidjsonlib.h
+*/
+#ifndef __STRINGSTREAM_HPP__
+#define __STRINGSTREAM_HPP__
+
 #include <string>
 #if defined(LUA_INCLUDE_HPP)
   #include <lua.hpp>
@@ -58,12 +65,15 @@ struct StreamTraits<extend::GenericStringStream<Encoding>> {
 };
 
 /// <summary>
-/// Allocators.h requites "Free" to be a static function and gives no
-/// reference to the allocator object maintained by the writer. Thus, to
-/// safely piggyback of the Lua allocator, the allocator itself must be a
-/// static.
+/// Allocators.h requites "Free" to be a static function and gives no reference
+/// to the allocator object maintained by the writer. Thus, to safely use
+/// lua_getallocf, the allocator and the opaque pointer it maintains must be
+/// packed in the header to any allocated memory block.
 ///
-/// Thus, unusable for any multi-threaded Lua environment.
+/// @TODO: Emphasize in documentation that extreme care is required when this
+///		feature is enabled with other modules (e.g., a memory profiler) that
+///		use lua_setallocf (consider the encoder or decoder yielding during a
+///		json_call callback).
 /// </summary>
 class LuaAllocator {
 private:
@@ -321,3 +331,5 @@ public:
   }
 };
 RAPIDJSON_NAMESPACE_END
+
+#endif
