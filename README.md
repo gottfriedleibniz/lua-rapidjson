@@ -190,6 +190,7 @@ The [test](test/) directory maintains a collection of scripts carried over from 
 1. Replace uses of `std::vector` for key-ordering with temporarily anchored userdata.
 1. Document "test/" and possibly reintroduce github/workflows support.
 1. Given that this library ignores the schema/document bits of rapidjson, its possible to introduce a CrtAllocator implementation that throws exceptions on failure.
+1. Include support for `MemoryPoolAllocator`, `RAPIDJSON_HAS_CXX11`, and `RAPIDJSON_NOEXCEPT`.
 
 ## Sources & Acknowledgments:
 1. [rapidjson](https://github.com/Tencent/rapidjson): json spec implementation.
