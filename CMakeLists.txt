@@ -66,17 +66,28 @@ IF( MSVC )
   ADD_COMPILE_DEFINITIONS(_CRT_NONSTDC_NO_DEPRECATE)
 
   SET(LUA_CXX_FLAGS "${MSVC_OPT_FLAG} /Ob2 /Oi /Ot /GT /GF /GS- /MP /EHsc /GL")
+  SET(LUA_REL_FLAGS "${LUA_REL_FLAGS} /GL")
+  SET(LUA_LINKFLAGS "${LUA_LINKFLAGS} /LTCG")
 
   # Visual Studio 2019 feature
   CHECK_CXX_COMPILER_FLAG("/Ob3" COMPILER_OPT_OB3)
   IF( COMPILER_OPT_OB3 )
+    STRING(REGEX REPLACE "[-/]Ob[1-4]" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
     STRING(REPLACE "/Ob2" "/Ob3" LUA_CXX_FLAGS "${LUA_CXX_FLAGS}")
+    SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Ob3")
   ENDIF()
 
-  SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Oy ${LUA_CXX_FLAGS} /DNDEBUG")
-  SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Zi ${LUA_CXX_FLAGS} /DNDEBUG")
-  SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /EHs /RTC1")
-  # SET(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
+  SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${LUA_CXX_FLAGS} ${LUA_REL_FLAGS} /Oy")
+  SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${LUA_CXX_FLAGS} ${LUA_REL_FLAGS} /Zi")
+
+  SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${LUA_LINKFLAGS}")
+  SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} ${LUA_LINKFLAGS}")
+
+  SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${LUA_LINKFLAGS}")
+  SET(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} ${LUA_LINKFLAGS}")
+
+  SET(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} ${LUA_LINKFLAGS}")
+  SET(CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO} ${LUA_LINKFLAGS}")
 
   # W4 to turn compiler warnings all the way up...
   STRING(REGEX REPLACE "[-/]W[1-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -114,17 +125,22 @@ ELSE()
 
   # Compiler options taken from Lua: lua/blob/master/makefile
   ADD_COMPILE_OPTIONS(
-    -Wall -Wextra -Wsign-compare -Wundef -Wwrite-strings
-    -Wredundant-decls -Wdisabled-optimization -Wdouble-promotion -Wno-inline
-    -Wdouble-promotion -Wunused-parameter -Wno-comment -Wno-unused-function
-    -Wno-array-bounds -Wno-sign-conversion -Wstrict-overflow=2 -Wformat=2
-    -Wno-format-nonliteral
+    -Wall -Wextra -Wsign-compare -Wundef -Wwrite-strings -Wdisabled-optimization
+    -Wno-inline -Wunused-parameter -Wno-comment -Wno-unused-function
+    -Wno-array-bounds -Wno-sign-conversion -Wformat=2
     # -Wshadow
     # -Werror
     # -Wconversion
     # -Wsign-conversion
     # -Wcast-qual
   )
+
+  IF (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    ADD_COMPILE_OPTIONS(
+        -Wredundant-decls -Wdouble-promotion -Wstrict-overflow=2
+        -Wno-format-nonliteral
+    )
+  ENDIF()
 
   IF( CMAKE_COMPILER_IS_CLANGXX )
     ADD_COMPILE_OPTIONS(-ferror-limit=5 -fno-common -Wno-deprecated
