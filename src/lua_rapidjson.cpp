@@ -124,7 +124,7 @@ static int luaL_optcheckoption (lua_State *L, int arg, const char *def, const ch
 
 bool is_json_null (lua_State *L, int idx) {
 #if LUA_VERSION_NUM == 501
-  return lua_touserdata(L, idx) == reinterpret_cast<void *>((&rapidjson_null));
+  return lua_touserdata(L, idx) == reinterpret_cast<void *>(&rapidjson_null);
 #else
   return lua_tocfunction(L, idx) == rapidjson_null;
 #endif
@@ -651,7 +651,7 @@ struct DecoderData {
 extern "C" {
 LUALIB_API int rapidjson_null (lua_State *L) {
 #if LUA_VERSION_NUM == 501
-  lua_pushlightuserdata(L, (void *)(&rapidjson_null));
+  lua_pushlightuserdata(L, reinterpret_cast<void *>(&rapidjson_null));
 #else
   lua_pushcfunction(L, rapidjson_null);
 #endif
@@ -1085,7 +1085,7 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
     { "setoption", rapidjson_setoption },
     { "getoption", rapidjson_getoption },
     /* special tags and functions */
-    { "null", rapidjson_null }, { "sentinel", rapidjson_null },
+    { "null", RAPIDJSON_NULLPTR }, { "sentinel", RAPIDJSON_NULLPTR },
     { "object", rapidjson_object },
     { "array", rapidjson_array },
     { "isobject", rapidjson_isobject },
@@ -1130,6 +1130,8 @@ LUAMOD_API int luaopen_rapidjson (lua_State *L) {
   luaL_newlib(L, luajson_lib);
 #endif
 
+  rapidjson_null(L); lua_setfield(L, -2, "null");
+  rapidjson_null(L); lua_setfield(L, -2, "sentinel");
   lua_pushboolean(L, 0); lua_setfield(L, -2, "using_lpeg");
   lua_pushliteral(L, LUA_RAPIDJSON_NAME); lua_setfield(L, -2, "_NAME");
   lua_pushliteral(L, LUA_RAPIDJSON_VERSION); lua_setfield(L, -2, "_VERSION");

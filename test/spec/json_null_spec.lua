@@ -3,10 +3,11 @@ describe('rapidjson.null', function()
   local rapidjson = require('rapidjson')
 
   --[[
-      Lua51/LuaJIT requires invoking the function; other Lua versions treat
-      sentinel as a 'light' C function, where rapidjson.null == rapidjson.null()
+      rapidjson.null is implemented as a 'light' C function for Lua 52, Lua 53,
+      and Lua 54, allowing rapidjson.null == rapidjson.null(). For previous
+      versions of Lua (Lua51/LuaJIT) the field is a light userdata.
   --]]
-  local rapidjson_null = rapidjson.null()
+  local rapidjson_null = rapidjson.null
 
   it('should encode as null', function()
     assert.are.equal('null', rapidjson.encode(rapidjson_null))

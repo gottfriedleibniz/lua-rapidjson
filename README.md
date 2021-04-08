@@ -53,10 +53,12 @@ value = json.getoption(option)
 -- Set a global encoding/decoding option; see json.getoption.
 json.setoption(option, value)
 
--- Returns a sentinel value used to represent "null". Lua 5.1 and LuaJIT require
--- invoking the function while other Lua versions treat sentinel as a 'light' C
--- function, where json.sentinel == json.sentinel().
-null = json.null() -- or json.sentinel()
+-- A sentinel value used to represent an explicit "null" value when encoding or
+-- (optionally) decoding. This is implemented witha 'light userdata' in Lua5.1/LuaJIT,
+-- and a 'light' C function for Lua 5.2, Lua 5.3, and Lua 5.4 (thereby allowing
+-- json.null == json.null()). This is intended to be an optimization of dkjsons
+-- approach that uses shared table with a custom '__tojson' metafunction.
+null = json.null -- or json.sentinel
 
 -- [dkjson:REMOVED]
 -- Will throw an error.
