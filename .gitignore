@@ -1,6 +1,9 @@
 build/
 deps/
+
 install_manifest.txt
+.clang-format
+.editorconfig
 
 *.a
 *.so
